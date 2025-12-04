@@ -85,6 +85,36 @@ async function stop(success: boolean) {
 .focus {
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
+  .row {
+    flex-wrap: wrap;
+  }
+  .notes {
+    min-width: 0;
+  }
+  .buttons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+
+  @media (max-width: 520px) {
+    .row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .row.running {
+      justify-content: flex-start;
+    }
+    .buttons {
+      margin-top: 8px;
+      justify-content: flex-end;
+    }
+    .running .timer {
+      margin-bottom: 6px;
+    }
+  }
   border-radius: 8px;
   padding: 8px;
 }

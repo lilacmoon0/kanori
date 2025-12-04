@@ -1,4 +1,4 @@
-const BASE_URL = (import.meta as any).env?.VITE_API_BASE || '/api'
+const BASE_URL = (import.meta as ImportMeta).env?.VITE_API_BASE || '/api'
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -49,6 +49,7 @@ export const endpoints = {
   tasks: '/tasks/',
   focusSessions: '/focus-sessions/',
   daySummaries: '/day-summaries/',
+  blocks: '/blocks/',
 }
 
 export default { http, endpoints }

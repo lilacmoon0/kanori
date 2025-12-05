@@ -2,8 +2,8 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import TaskBoard from '../components/TaskBoard.vue'
-import TimeStats from '../components/TimeStats.vue'
 import { useTasksStore } from '../stores/tasks'
+import DaySummary from '@/components/DaySummary.vue'
 const tasks = useTasksStore()
 
 onMounted(() => {
@@ -17,10 +17,7 @@ onMounted(() => {
       <h2>Life Management Dashboard</h2>
     </header>
     <TaskBoard />
-    <section class="stats">
-      <h3>Recent Focus Activity</h3>
-      <TimeStats />
-    </section>
+    <DaySummary />
   </div>
 </template>
 

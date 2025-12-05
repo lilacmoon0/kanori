@@ -9,6 +9,9 @@ export interface Task {
   estimated_minutes: number
   created_at: string
   updated_at: string
+  background_color?: string
+  theme_color?: string
+  color?: string
 }
 
 export interface FocusSession {

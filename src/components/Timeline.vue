@@ -3,6 +3,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useBlocksStore } from '../stores/blocks'
 import { useTasksStore } from '../stores/tasks'
+import type { Block } from '../types'
 
 const blocksStore = useBlocksStore()
 const tasksStore = useTasksStore()
@@ -18,6 +19,20 @@ const selectedDate = ref('')
 // Helpers
 const pad = (n: number) => n.toString().padStart(2, '0')
 
+const parseSelectedYmd = (ymd: string) => {
+  const now = new Date()
+  const [ys, ms, ds] = ymd.split('-')
+  const y = Number(ys)
+  const m = Number(ms)
+  const d = Number(ds)
+
+  return {
+    y: Number.isFinite(y) ? y : now.getFullYear(),
+    m: Number.isFinite(m) ? m : now.getMonth() + 1,
+    d: Number.isFinite(d) ? d : now.getDate(),
+  }
+}
+
 // Format Date -> datetime-local value
 const toLocalDateTimeInputValue = (date: Date) => {
   return [
@@ -26,19 +41,23 @@ const toLocalDateTimeInputValue = (date: Date) => {
   ].join('T')
 }
 
-// Take local datetime string (from input) and return a naive ISO-like string WITHOUT timezone
-// Example: "2025-12-09T20:15" -> "2025-12-09T20:15:00"
-const toNaiveISO = (value: string) => {
+// Convert local datetime-local value to UTC ISO string.
+// This prevents the backend from interpreting a naive string as UTC (which would shift on readback).
+const toUtcISOStringFromLocalInput = (value: string) => {
   if (!value) return ''
-
   const [datePart, timePart] = value.split('T')
   if (!datePart || !timePart) return value
 
-  const [hours, minutes] = timePart.split(':')
-  const h = pad(Number(hours ?? '0'))
-  const m = pad(Number(minutes ?? '0'))
+  const [ys, ms, ds] = datePart.split('-')
+  const [hs, mins] = timePart.split(':')
+  const y = Number(ys)
+  const m = Number(ms)
+  const d = Number(ds)
+  const h = Number(hs)
+  const min = Number(mins)
 
-  return `${datePart}T${h}:${m}:00`
+  const localDate = new Date(y, (m || 1) - 1, d || 1, h || 0, min || 0, 0)
+  return localDate.toISOString()
 }
 
 // Initialize selected day + start datetime
@@ -52,8 +71,8 @@ const resetForm = () => {
   selectedTaskId.value = null
   // Keep selected day but reset start time to now (same day if today, else leave?)
   const base = new Date()
-  const [y, m, d] = selectedDate.value.split('-').map(Number)
-  base.setFullYear(y, (m ?? 1) - 1, d ?? base.getDate())
+  const { y, m, d } = parseSelectedYmd(selectedDate.value)
+  base.setFullYear(y, m - 1, d)
   startDate.value = toLocalDateTimeInputValue(base)
 }
 
@@ -71,7 +90,7 @@ const createBlock = async () => {
   try {
     await blocksStore.create({
       task: selectedTaskId.value,
-      start_date: toNaiveISO(startDate.value),
+      start_date: toUtcISOStringFromLocalInput(startDate.value),
     })
     resetForm()
     showForm.value = false
@@ -104,8 +123,8 @@ const getTaskTitle = (taskId: number) => {
 
 // Day slider controls
 const changeDay = (delta: number) => {
-  const [y, m, d] = selectedDate.value.split('-').map(Number)
-  const date = new Date(y, (m ?? 1) - 1, d ?? 1)
+  const { y, m, d } = parseSelectedYmd(selectedDate.value)
+  const date = new Date(y, m - 1, d)
   date.setDate(date.getDate() + delta)
   selectedDate.value = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
@@ -147,8 +166,8 @@ const getBlockForSlot = (hour: number, minute: number) => {
 
 // When user clicks an empty slot on the timeline
 const selectSlot = (hour: number, minute: number) => {
-  const [y, m, d] = selectedDate.value.split('-').map(Number)
-  const date = new Date(y, (m ?? 1) - 1, d ?? 1, hour, minute, 0)
+  const { y, m, d } = parseSelectedYmd(selectedDate.value)
+  const date = new Date(y, m - 1, d, hour, minute, 0)
   startDate.value = toLocalDateTimeInputValue(date)
   showForm.value = true
 }

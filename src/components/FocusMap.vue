@@ -5,6 +5,10 @@ import type { ApexOptions } from 'apexcharts'
 import { useFocusStore } from '../stores/focusSessions'
 import VueApexCharts from 'vue3-apexcharts'
 
+defineOptions({
+  components: { apexchart: VueApexCharts },
+})
+
 const store = useFocusStore()
 
 onMounted(() => {
@@ -22,6 +26,17 @@ const props = defineProps<{ month?: string; startDate?: string }>()
 const selectedMonth = ref<string | null>(
   props.month ?? (props.startDate ? String(props.startDate).slice(0, 7) : null)
 )
+
+// Parse API datetime strings safely.
+// If the backend returns a "naive" datetime string (no timezone suffix), assume it is UTC.
+// This prevents the browser from treating it as local time (which can shift by the user's UTC offset).
+function parseApiDate(value: string) {
+  const v = String(value || '')
+  if (!v) return new Date(NaN)
+  const normalized = v.includes(' ') && !v.includes('T') ? v.replace(' ', 'T') : v
+  const hasTz = /([zZ]|[+-]\d{2}:?\d{2})$/.test(normalized)
+  return new Date(hasTz ? normalized : `${normalized}Z`)
+}
 
 // Determine start of current week (Sunday) or use provided startDate
 function startOfWeek(date: Date) {
@@ -111,7 +126,7 @@ const series = computed(() => {
   const buckets = new Map<string, number>()
   for (const s of store.sessions) {
     if (!s.started_at) continue
-    const started = new Date(s.started_at)
+    const started = parseApiDate(s.started_at)
     // find which week bucket the started date falls into
     let weekIdx = -1
     for (let i = 0; i < weekStarts.value.length; i++) {
@@ -192,13 +207,6 @@ const options = computed<ApexOptions>(() => ({
   </div>
   
 </template>
-
-<script lang="ts">
-// Register the component locally for SFC template usage
-export default {
-  components: { apexchart: VueApexCharts },
-}
-</script>
 
 <style scoped>
 .focus-map {

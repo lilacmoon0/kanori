@@ -4,6 +4,7 @@ import TaskCard from './TaskCard.vue'
 import { useTasksStore } from '../stores/tasks'
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useColumnsStore } from '../stores/columns'
+import { MoreVertical, RotateCcw, X, Plus } from 'lucide-vue-next'
 
 const props = defineProps<{
   title: string
@@ -118,8 +119,10 @@ async function onDrop(e: DragEvent) {
             @click.stop="toggleMenu"
             aria-haspopup="true"
             :aria-expanded="menuOpen"
+            aria-label="Column menu"
+            title="Column menu"
           >
-            …
+            <MoreVertical :size="18" />
           </button>
 
           <div v-if="menuOpen" class="menu-popover">
@@ -141,8 +144,12 @@ async function onDrop(e: DragEvent) {
             </div>
 
             <div style="display: flex; gap: 8px; margin-top: 8px">
-              <button class="menu-item" @click="resetColor">Reset</button>
-              <button class="menu-item" @click="closeMenu">Close</button>
+              <button class="menu-item" @click="resetColor" aria-label="Reset color" title="Reset color">
+                <RotateCcw :size="16" />
+              </button>
+              <button class="menu-item" @click="closeMenu" aria-label="Close menu" title="Close menu">
+                <X :size="16" />
+              </button>
             </div>
           </div>
         </div>
@@ -184,8 +191,12 @@ async function onDrop(e: DragEvent) {
             <input v-model="newDescription" placeholder="Description (optional)" />
 
             <div class="add-actions">
-              <button @click="createTask" :disabled="creating">Add</button>
-              <button @click="addOpen = false">Cancel</button>
+              <button @click="createTask" :disabled="creating" aria-label="Add task" title="Add task">
+                <Plus :size="16" />
+              </button>
+              <button @click="addOpen = false" aria-label="Cancel" title="Cancel">
+                <X :size="16" />
+              </button>
             </div>
 
             <p v-if="addErr" class="error">{{ addErr }}</p>
@@ -193,7 +204,10 @@ async function onDrop(e: DragEvent) {
         </div>
 
         <div class="add-inner">
-          <button v-if="!addOpen" class="add-new" @click="toggleAdd">+ Add new task</button>
+          <button v-if="!addOpen" class="add-new" @click="toggleAdd">
+            <Plus :size="16" />
+            <span>Add new task</span>
+          </button>
         </div>
       </div>
     </div>
@@ -245,6 +259,10 @@ async function onDrop(e: DragEvent) {
   background: transparent;
   cursor: pointer;
   font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .add-form input {
@@ -269,6 +287,9 @@ async function onDrop(e: DragEvent) {
   padding: 5px 8px;
   border-radius: 6px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .add-actions button:last-child {
   background: transparent;
@@ -276,6 +297,9 @@ async function onDrop(e: DragEvent) {
   padding: 5px 8px;
   border-radius: 6px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .error {
   color: #b91c1c;
@@ -302,7 +326,10 @@ async function onDrop(e: DragEvent) {
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 18px;
+  padding: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .menu-popover {
   position: absolute;
@@ -319,8 +346,15 @@ async function onDrop(e: DragEvent) {
 .menu-item {
   background: transparent;
   border: none;
-  padding: 6px 10px;
+  padding: 6px;
   cursor: pointer;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.menu-item:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 .color-palette {
   display: flex;

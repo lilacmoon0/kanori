@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import type { Task } from '../types'
 import { useFocusStore } from '../stores/focusSessions'
 import { useTasksStore } from '../stores/tasks'
+import { Check, Pause, Pencil, Play, Timer, Trash2, X } from 'lucide-vue-next'
 
 // Define Props Interface for cleaner syntax and environment compatibility
 interface TaskCardProps {
@@ -301,18 +302,32 @@ function onDragStart(e: DragEvent) {
         <template v-if="activeSession">
           <div class="focus-min">
             <span class="focus-time">{{ elapsedText }}</span>
-            <button class="focus-toggle" :title="paused ? 'Resume' : 'Stop'" @click="onFocusButtonClick">
-              {{ paused ? '▶' : '⏹' }}
+            <button
+              class="focus-toggle"
+              :title="paused ? 'Resume' : 'Pause'"
+              :aria-label="paused ? 'Resume focus' : 'Pause focus'"
+              @click="onFocusButtonClick"
+            >
+              <Play v-if="paused" :size="14" />
+              <Pause v-else :size="14" />
             </button>
-            <button class="focus-end" title="End" @click="endFocusQuick">✓</button>
+            <button class="focus-end" title="End" aria-label="End focus" @click="endFocusQuick">
+              <Check :size="14" />
+            </button>
           </div>
         </template>
         <template v-else>
-          <button class="focus-toggle" title="Focus" @click="onFocusButtonClick">⏱</button>
+          <button class="focus-toggle" title="Focus" aria-label="Start focus" @click="onFocusButtonClick">
+            <Timer :size="14" />
+          </button>
         </template>
 
-        <button class="icon" title="Edit" @click="openEdit">✏️</button>
-        <button class="icon" title="Delete" @click="emit('remove', task.id)">X</button>
+        <button class="icon" title="Edit" aria-label="Edit" @click="openEdit">
+          <Pencil :size="16" />
+        </button>
+        <button class="icon" title="Delete" aria-label="Delete" @click="emit('remove', task.id)">
+          <Trash2 :size="16" />
+        </button>
       </div>
     </div>
     <p class="desc" v-if="task.description">{{ task.description }}</p>
@@ -399,8 +414,12 @@ function onDragStart(e: DragEvent) {
 
         <!-- Actions -->
         <div class="edit-actions">
-          <button class="btn-save" @click="saveEdit" :disabled="saving">Save</button>
-          <button class="btn-cancel" @click="closeEdit">Cancel</button>
+          <button class="btn-save" @click="saveEdit" :disabled="saving" aria-label="Save" title="Save">
+            <Check :size="16" />
+          </button>
+          <button class="btn-cancel" @click="closeEdit" aria-label="Cancel" title="Cancel">
+            <X :size="16" />
+          </button>
         </div>
         <p v-if="editError" class="error">{{ editError }}</p>
       </div>
@@ -486,6 +505,9 @@ function onDragStart(e: DragEvent) {
   height: 22px;
   font-size: 12px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .focus-end:disabled { opacity: 0.5; cursor: not-allowed }
 
@@ -493,9 +515,12 @@ function onDragStart(e: DragEvent) {
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  padding: 2px;
   color: var(--card-text);
   opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .icon:hover {
@@ -696,11 +721,14 @@ function onDragStart(e: DragEvent) {
   background: var(--card-theme);
   color: var(--card-text);
   border: none;
-  padding: 6px 12px;
+  padding: 6px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
   transition: opacity 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-save:hover {
@@ -716,10 +744,13 @@ function onDragStart(e: DragEvent) {
   background: transparent;
   border: 1px solid var(--card-border);
   color: var(--card-text);
-  padding: 6px 10px;
+  padding: 6px;
   border-radius: 6px;
   cursor: pointer;
   opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-cancel:hover {

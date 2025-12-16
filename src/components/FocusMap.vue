@@ -4,6 +4,7 @@ import { onMounted, computed, ref } from 'vue'
 import type { ApexOptions } from 'apexcharts'
 import { useFocusStore } from '../stores/focusSessions'
 import VueApexCharts from 'vue3-apexcharts'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 defineOptions({
   components: { apexchart: VueApexCharts },
@@ -200,9 +201,13 @@ const options = computed<ApexOptions>(() => ({
 <template>
   <div class="focus-map">
   <div class="focus-map-controls">
-      <button type="button" class="nav" @click="prevMonth" aria-label="Previous month">‹</button>
+      <button type="button" class="nav" @click="prevMonth" aria-label="Previous month" title="Previous month">
+        <ChevronLeft :size="18" />
+      </button>
       <apexchart class="chart" type="heatmap" :options="options" :series="series" height="420" /> 
-      <button type="button" class="nav" @click="nextMonth" aria-label="Next month">›</button>
+      <button type="button" class="nav" @click="nextMonth" aria-label="Next month" title="Next month">
+        <ChevronRight :size="18" />
+      </button>
     </div>
   </div>
   
@@ -223,9 +228,11 @@ const options = computed<ApexOptions>(() => ({
   border: 1px solid #ccc;
   background: #fff;
   border-radius: 4px;
-  padding: 6px 10px;
+  padding: 6px;
   cursor: pointer;
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .focus-map-controls .chart {
   flex: 1 1 0;

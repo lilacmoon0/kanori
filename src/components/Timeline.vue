@@ -3,18 +3,35 @@
 import { ref, computed, onMounted } from 'vue'
 import { useBlocksStore } from '../stores/blocks'
 import { useTasksStore } from '../stores/tasks'
+import { useDayBoundsStore } from '../stores/dayBounds'
 import type { Block } from '../types'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  X,
+  Check,
+  Clock,
+} from 'lucide-vue-next'
 
 const blocksStore = useBlocksStore()
 const tasksStore = useTasksStore()
+const dayBoundsStore = useDayBoundsStore()
 
-// Form state
-const showForm = ref(false)
+// Modal state
+const showModal = ref(false)
+const showBoundsModal = ref(false)
 const selectedTaskId = ref<number | null>(null)
 const startDate = ref('')
+const editingBlockId = ref<number | null>(null)
 
 // Day selection (YYYY-MM-DD)
 const selectedDate = ref('')
+
+// Wake/Sleep bounds (set once)
+const wakeTime = ref('')
+const sleepTime = ref('')
 
 // Helpers
 const pad = (n: number) => n.toString().padStart(2, '0')
@@ -60,6 +77,35 @@ const toUtcISOStringFromLocalInput = (value: string) => {
   return localDate.toISOString()
 }
 
+const parseHm = (hm: string) => {
+  const [hs, ms] = String(hm || '').split(':')
+  const h = Number(hs)
+  const m = Number(ms)
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null
+  return h * 60 + m
+}
+
+const minutesToHm = (mins: number) => {
+  const m = Math.max(0, Math.min(23 * 60 + 59, Math.round(mins)))
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
+}
+
+const saveBounds = () => {
+  const wake = parseHm(wakeTime.value)
+  const sleep = parseHm(sleepTime.value)
+  if (wake === null || sleep === null) {
+    alert('Please enter valid wake and sleep times (HH:MM).')
+    return
+  }
+  if (sleep <= wake) {
+    alert('Sleep time must be after wake time.')
+    return
+  }
+  dayBoundsStore.set({ wake: wakeTime.value, sleep: sleepTime.value })
+  showBoundsModal.value = false
+}
+
 // Initialize selected day + start datetime
 const initializeDate = () => {
   const now = new Date()
@@ -69,6 +115,7 @@ const initializeDate = () => {
 
 const resetForm = () => {
   selectedTaskId.value = null
+  editingBlockId.value = null
   // Keep selected day but reset start time to now (same day if today, else leave?)
   const base = new Date()
   const { y, m, d } = parseSelectedYmd(selectedDate.value)
@@ -76,8 +123,8 @@ const resetForm = () => {
   startDate.value = toLocalDateTimeInputValue(base)
 }
 
-// Create / delete
-const createBlock = async () => {
+// Create / update / delete
+const submitBlock = async () => {
   if (selectedTaskId.value === null) {
     alert('Please select a task')
     return
@@ -88,16 +135,29 @@ const createBlock = async () => {
   }
 
   try {
-    await blocksStore.create({
+    const payload = {
       task: selectedTaskId.value,
       start_date: toUtcISOStringFromLocalInput(startDate.value),
-    })
+    } as Partial<Block>
+
+    if (editingBlockId.value !== null) {
+      await blocksStore.update(editingBlockId.value, payload)
+    } else {
+      await blocksStore.create(payload)
+    }
     resetForm()
-    showForm.value = false
+    showModal.value = false
   } catch (error) {
-    console.error('Failed to create block:', error)
-    alert('Failed to create block')
+    console.error('Failed to save block:', error)
+    alert('Failed to save block')
   }
+}
+
+const editBlock = (block: Block) => {
+  editingBlockId.value = block.id
+  selectedTaskId.value = block.task
+  startDate.value = toLocalDateTimeInputValue(new Date(block.start_date))
+  showModal.value = true
 }
 
 const deleteBlock = async (id: number) => {
@@ -111,14 +171,19 @@ const deleteBlock = async (id: number) => {
   }
 }
 
-// Formatting helpers
-const formatDateTime = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString()
-}
-
 const getTaskTitle = (taskId: number) => {
   const task = tasksStore.items.find((t) => t.id === taskId)
   return task ? task.title : `Task #${taskId}`
+}
+
+const getTaskThemeColor = (taskId: number) => {
+  const task = tasksStore.items.find((t) => t.id === taskId)
+  const direct = task?.theme_color || task?.color
+  if (direct) return direct
+
+  // Deterministic fallback palette (reuses colors already present in the app)
+  const palette = ['#4a90e2', '#10b981', '#e66666', '#1c5fb8', '#2E7D32', '#66BB6A', '#A5D6A7']
+  return palette[Math.abs(taskId) % palette.length]!
 }
 
 // Day slider controls
@@ -127,11 +192,8 @@ const changeDay = (delta: number) => {
   const date = new Date(y, m - 1, d)
   date.setDate(date.getDate() + delta)
   selectedDate.value = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  resetForm()
 }
-
-// Timeline data
-const hours = Array.from({ length: 24 }, (_, i) => i)
-const slotMinutes = [0, 30]
 
 // Blocks for selected day
 const blocksForSelectedDay = computed(() => {
@@ -142,42 +204,144 @@ const blocksForSelectedDay = computed(() => {
   })
 })
 
-// Map blocks by rounded slot "HH:MM"
-const blocksBySlot = computed(() => {
-  const map = new Map<string, Block[]>()
-  for (const block of blocksForSelectedDay.value) {
-    const d = new Date(block.start_date)
-    const hour = d.getHours()
-    // Assign to 00 or 30 based on minutes
-    const minuteSlot = d.getMinutes() >= 30 ? 30 : 0
-    const key = `${pad(hour)}:${pad(minuteSlot)}`
-    const existing = map.get(key) ?? []
-    existing.push(block)
-    map.set(key, existing)
-  }
-  return map
+const wakeMinutes = computed(() => parseHm(wakeTime.value))
+const sleepMinutes = computed(() => parseHm(sleepTime.value))
+const hasBounds = computed(() => wakeMinutes.value !== null && sleepMinutes.value !== null)
+const boundsValid = computed(() =>
+  hasBounds.value && (sleepMinutes.value as number) > (wakeMinutes.value as number),
+)
+
+const minutesRange = computed(() => {
+  if (!boundsValid.value) return 0
+  return (sleepMinutes.value as number) - (wakeMinutes.value as number)
 })
 
-const getBlockForSlot = (hour: number, minute: number) => {
-  const key = `${pad(hour)}:${pad(minute)}`
-  const list = blocksBySlot.value.get(key)
-  return list && list.length > 0 ? list[0] : null
+const PX_PER_MINUTE = 1
+const timelineHeightPx = computed(() => {
+  const h = minutesRange.value * PX_PER_MINUTE
+  return Math.max(480, Math.min(1800, h))
+})
+
+const blocksSorted = computed(() => {
+  return [...blocksForSelectedDay.value].sort(
+    (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime(),
+  )
+})
+
+const markerForMinutes = (minutesFromMidnight: number) => {
+  if (!boundsValid.value) return 0
+  const start = wakeMinutes.value as number
+  const end = sleepMinutes.value as number
+  const clamped = Math.max(start, Math.min(end, minutesFromMidnight))
+  const ratio = (clamped - start) / (end - start)
+  return ratio * timelineHeightPx.value
 }
 
-// When user clicks an empty slot on the timeline
-const selectSlot = (hour: number, minute: number) => {
+const blockStartMinutes = (block: Block) => {
+  const d = new Date(block.start_date)
+  return d.getHours() * 60 + d.getMinutes()
+}
+
+const blockEndMinutes = (block: Block) => {
+  const fallback = blockStartMinutes(block) + 30
+  if (!block.end_date) return fallback
+  const d = new Date(block.end_date)
+  const mins = d.getHours() * 60 + d.getMinutes()
+  // Guard against bad data (or missing end) that would yield 0/negative durations
+  return mins > blockStartMinutes(block) ? mins : fallback
+}
+
+const blockTopPx = (block: Block) => markerForMinutes(blockStartMinutes(block))
+const blockHeightPx = (block: Block) => {
+  const top = markerForMinutes(blockStartMinutes(block))
+  const bottom = markerForMinutes(blockEndMinutes(block))
+  return Math.max(10, bottom - top)
+}
+
+const blockStyleVars = (block: Block) => {
+  const c = getTaskThemeColor(block.task)
+  return {
+    '--task-color': c,
+  } as Record<string, string>
+}
+
+const hourTicks = computed(() => {
+  if (!boundsValid.value) return [] as { label: string; top: number }[]
+  const start = wakeMinutes.value as number
+  const end = sleepMinutes.value as number
+  const firstHour = Math.ceil(start / 60)
+  const lastHour = Math.floor(end / 60)
+  const ticks: { label: string; top: number }[] = []
+  for (let h = firstHour; h <= lastHour; h++) {
+    const mins = h * 60
+    ticks.push({ label: `${pad(h)}:00`, top: markerForMinutes(mins) })
+  }
+  return ticks
+})
+
+const timelineTrackRef = ref<HTMLElement | null>(null)
+
+const setStartDateFromMinutes = (minutesFromMidnight: number) => {
   const { y, m, d } = parseSelectedYmd(selectedDate.value)
-  const date = new Date(y, m - 1, d, hour, minute, 0)
+  const hm = minutesToHm(minutesFromMidnight)
+  const [hs, ms] = hm.split(':')
+  const date = new Date(y, m - 1, d, Number(hs), Number(ms), 0)
   startDate.value = toLocalDateTimeInputValue(date)
-  showForm.value = true
 }
 
-const formatHourLabel = (hour: number) => {
-  return `${pad(hour)}:00`
+const onTimelineClick = (e: MouseEvent) => {
+  if (!boundsValid.value) {
+    showBoundsModal.value = true
+    return
+  }
+  const el = timelineTrackRef.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const y = e.clientY - rect.top
+  const ratio = Math.max(0, Math.min(1, y / rect.height))
+  const mins = (wakeMinutes.value as number) + ratio * minutesRange.value
+  const rounded = Math.round(mins / 5) * 5
+  editingBlockId.value = null
+  setStartDateFromMinutes(rounded)
+  showModal.value = true
+}
+
+const cancelForm = () => {
+  showModal.value = false
+  resetForm()
+}
+
+const openBoundsEditor = () => {
+  showBoundsModal.value = true
+}
+
+const cancelBounds = () => {
+  showBoundsModal.value = false
+  const existing = dayBoundsStore.get()
+  if (existing) {
+    wakeTime.value = existing.wake
+    sleepTime.value = existing.sleep
+  }
+}
+
+const formatTimeOnly = (dateStr: string) => {
+  const d = new Date(dateStr)
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const formatTimeRange = (block: Block) => {
+  const start = formatTimeOnly(block.start_date)
+  const end = block.end_date ? formatTimeOnly(block.end_date) : minutesToHm(blockStartMinutes(block) + 30)
+  return `${start}–${end}`
 }
 
 onMounted(() => {
   initializeDate()
+  const existing = dayBoundsStore.get()
+  if (existing) {
+    wakeTime.value = existing.wake
+    sleepTime.value = existing.sleep
+  }
   tasksStore.fetchAll()
   blocksStore.fetchAll()
 })
@@ -187,46 +351,116 @@ onMounted(() => {
   <div class="timeline-container">
     <!-- Day selection slider -->
     <div class="day-slider">
-      <button class="day-nav-btn" @click="changeDay(-1)">‹</button>
+      <button class="day-nav-btn" @click="changeDay(-1)" aria-label="Previous day" title="Previous day">
+        <ChevronLeft :size="18" />
+      </button>
 
       <div class="day-current">
         <input type="date" v-model="selectedDate" />
       </div>
 
-      <button class="day-nav-btn" @click="changeDay(1)">›</button>
+      <button class="day-nav-btn" @click="changeDay(1)" aria-label="Next day" title="Next day">
+        <ChevronRight :size="18" />
+      </button>
     </div>
 
     <div class="header">
       <h2>Time Blocks</h2>
-      <button @click="showForm = !showForm" class="btn-primary">
-        {{ showForm ? 'Cancel' : '+ New Block' }}
-      </button>
     </div>
 
-    <!-- Create Block Form -->
-    <div v-if="showForm" class="form-card">
-      <h3>Create Time Block</h3>
-      <form @submit.prevent="createBlock">
-        <div class="form-group">
-          <label for="task">Task *</label>
-          <select id="task" v-model="selectedTaskId" required>
-            <option :value="null" disabled>-- Select a Task --</option>
-            <option v-for="task in tasksStore.items" :key="task.id" :value="task.id">
-              {{ task.title }}
-            </option>
-          </select>
+    <!-- Task + time modal (create/edit) -->
+    <div v-if="showModal" class="modal-overlay" @click.self="cancelForm">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">{{ editingBlockId ? 'Edit Block' : 'New Block' }}</h3>
+          <button type="button" class="icon-btn" @click="cancelForm" aria-label="Close" title="Close">
+            <X :size="18" />
+          </button>
         </div>
 
-        <div class="form-group">
-          <label for="start-date">Start Time *</label>
-          <input id="start-date" v-model="startDate" type="datetime-local" required />
+        <form @submit.prevent="submitBlock">
+          <div class="form-group">
+            <label for="task">Task *</label>
+            <select id="task" v-model="selectedTaskId" required>
+              <option :value="null" disabled>-- Select a Task --</option>
+              <option v-for="task in tasksStore.items" :key="task.id" :value="task.id">
+                {{ task.title }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="start-date">Start Time *</label>
+            <input id="start-date" v-model="startDate" type="datetime-local" required />
+          </div>
+
+          <div class="form-actions">
+            <button
+              type="button"
+              @click="cancelForm"
+              class="btn-secondary icon-btn"
+              aria-label="Cancel"
+              title="Cancel"
+            >
+              <X :size="18" />
+            </button>
+            <button
+              type="submit"
+              class="btn-primary icon-btn"
+              :aria-label="editingBlockId ? 'Save block' : 'Create block'"
+              :title="editingBlockId ? 'Save' : 'Create'"
+            >
+              <Check :size="18" />
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bounds modal (set/edit wake/sleep) -->
+    <div v-if="showBoundsModal" class="modal-overlay" @click.self="cancelBounds">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">Day Bounds</h3>
+          <button type="button" class="icon-btn" @click="cancelBounds" aria-label="Close" title="Close">
+            <X :size="18" />
+          </button>
         </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="wake">Wake *</label>
+            <input id="wake" type="time" v-model="wakeTime" />
+          </div>
+          <div class="form-group">
+            <label for="sleep">Sleep *</label>
+            <input id="sleep" type="time" v-model="sleepTime" />
+          </div>
+        </div>
+
+        <div v-if="hasBounds && !boundsValid" class="bounds-error">Sleep must be after wake.</div>
 
         <div class="form-actions">
-          <button type="button" @click="showForm = false" class="btn-secondary">Cancel</button>
-          <button type="submit" class="btn-primary">Create Block</button>
+          <button
+            type="button"
+            @click="cancelBounds"
+            class="btn-secondary icon-btn"
+            aria-label="Cancel"
+            title="Cancel"
+          >
+            <X :size="18" />
+          </button>
+          <button
+            type="button"
+            class="btn-primary icon-btn"
+            @click="saveBounds"
+            aria-label="Save"
+            title="Save"
+          >
+            <Check :size="18" />
+          </button>
         </div>
-      </form>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -237,49 +471,109 @@ onMounted(() => {
       {{ blocksStore.error }}
     </div>
 
-    <!-- Day Timeline -->
+    <!-- Day Timeline (true scale) -->
     <div v-else class="day-timeline">
-      <div v-if="blocksStore.items.length === 0" class="empty-state">
-        <p>No time blocks yet. Click on the timeline to add one.</p>
+      <div v-if="!boundsValid" class="empty-state">
+        <p>Set wake and sleep times to view the day timeline.</p>
+        <button
+          type="button"
+          class="btn-primary icon-btn"
+          @click="openBoundsEditor"
+          aria-label="Set day bounds"
+          title="Set day bounds"
+        >
+          <Clock :size="18" />
+        </button>
       </div>
 
-      <div class="timeline-grid">
-        <div v-for="hour in hours" :key="hour" class="timeline-row">
-          <div class="hour-label">
-            {{ formatHourLabel(hour) }}
+      <div v-else class="mainline-wrap">
+        <div class="mainline" :style="{ height: timelineHeightPx + 'px' }" ref="timelineTrackRef" @click="onTimelineClick">
+          <!-- center line -->
+          <div class="line"></div>
+
+          <!-- hour ticks -->
+          <div v-for="t in hourTicks" :key="t.label" class="tick" :style="{ top: t.top + 'px' }">
+            <div class="tick-label">{{ t.label }}</div>
+            <div class="tick-mark"></div>
           </div>
 
-          <div class="hour-slots">
-            <div v-for="minute in slotMinutes" :key="minute" class="slot-wrapper">
-              <div class="slot" @click="!getBlockForSlot(hour, minute) && selectSlot(hour, minute)">
-                <template v-if="getBlockForSlot(hour, minute)">
-                  <div class="slot-block">
-                    <div class="slot-block-title">
-                      {{ getTaskTitle(getBlockForSlot(hour, minute)!.task) }}
-                    </div>
-                    <div class="slot-block-time">
-                      {{ formatDateTime(getBlockForSlot(hour, minute)!.start_date) }}
-                    </div>
-                    <button
-                      class="slot-block-delete"
-                      @click.stop="deleteBlock(getBlockForSlot(hour, minute)!.id)"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="slot-empty">
-                    <!-- subtle hint only on some slots if you like -->
-                    <!-- <span>+</span> -->
-                  </div>
-                </template>
+          <!-- wake marker -->
+          <div class="marker marker-system marker-top" :style="{ top: '0px' }" @click.stop>
+            <div class="dot dot-system"></div>
+            <div class="bubble">
+              <div class="bubble-title-row">
+                <div class="bubble-title">Wake</div>
+                <div class="bubble-actions inline">
+                  <button
+                    type="button"
+                    class="mini"
+                    @click.stop="openBoundsEditor"
+                    aria-label="Edit day bounds"
+                    title="Edit day bounds"
+                  >
+                    <Pencil :size="16" />
+                  </button>
+                </div>
               </div>
-              <div class="slot-minute-label">
-                {{ minute.toString().padStart(2, '0') }}
-              </div>
+              <div class="bubble-sub">{{ wakeTime }}</div>
             </div>
           </div>
+
+          <!-- blocks (duration-aware) -->
+          <div
+            v-for="block in blocksSorted"
+            :key="block.id"
+            class="block-item"
+            :style="{ top: blockTopPx(block) + 'px', height: blockHeightPx(block) + 'px', ...blockStyleVars(block) }"
+            @click.stop
+          >
+            <div class="block-core">
+              <div class="block-pill" />
+            </div>
+            <div class="bubble" :style="{ borderColor: 'var(--task-color)' }">
+              <div class="bubble-title-row">
+                <div class="bubble-title">{{ getTaskTitle(block.task) }}</div>
+                <div class="bubble-actions inline">
+                  <button
+                    type="button"
+                    class="mini"
+                    @click.stop="editBlock(block)"
+                    aria-label="Edit block"
+                    title="Edit"
+                  >
+                    <Pencil :size="16" />
+                  </button>
+                  <button
+                    type="button"
+                    class="mini danger"
+                    @click.stop="deleteBlock(block.id)"
+                    aria-label="Delete block"
+                    title="Delete"
+                  >
+                    <Trash2 :size="16" />
+                  </button>
+                </div>
+              </div>
+              <div class="bubble-sub">{{ formatTimeRange(block) }}</div>
+            </div>
+          </div>
+
+          <!-- sleep marker -->
+          <div
+            class="marker marker-system marker-bottom"
+            :style="{ top: timelineHeightPx + 'px' }"
+            @click.stop
+          >
+            <div class="dot dot-system"></div>
+            <div class="bubble">
+              <div class="bubble-title">Sleep</div>
+              <div class="bubble-sub">{{ sleepTime }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="blocksSorted.length === 0" class="empty-state below">
+          <p>No blocks for this day. Click on the timeline to add one.</p>
         </div>
       </div>
     </div>
@@ -288,7 +582,7 @@ onMounted(() => {
 
 <style scoped>
 .timeline-container {
-  max-width: 900px;
+  max-width: 760px;
   margin: 0 auto;
   padding: 20px;
 }
@@ -347,6 +641,12 @@ onMounted(() => {
   padding: 24px;
   margin-bottom: 24px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bounds-error {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #dc3545;
 }
 
 .form-card h3 {
@@ -433,6 +733,15 @@ onMounted(() => {
   transition: background 0.2s;
 }
 
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn-secondary:hover {
   background: #f8f9fa;
 }
@@ -455,102 +764,229 @@ onMounted(() => {
   margin-top: 8px;
 }
 
-.timeline-grid {
+.mainline-wrap {
   border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  overflow: hidden;
+  border-radius: 10px;
+  padding: 18px 18px;
+  background: white;
+  max-width: 620px;
+  margin: 0 auto;
 }
 
-.timeline-row {
-  display: grid;
-  grid-template-columns: 70px 1fr;
-  border-bottom: 1px solid #f1f3f5;
+.mainline {
+  position: relative;
+  width: 100%;
+  cursor: pointer;
+  --line-x: 44px;
 }
 
-.timeline-row:last-child {
-  border-bottom: none;
+.line {
+  position: absolute;
+  left: var(--line-x);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #dee2e6;
 }
 
-.hour-label {
-  background: #f8f9fa;
-  padding: 8px 10px;
+.tick {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.tick-label {
+  position: absolute;
+  left: 0;
   font-size: 12px;
   color: #868e96;
+}
+
+.tick-mark {
+  position: absolute;
+  left: var(--line-x);
+  width: 18px;
+  height: 1px;
+  transform: translateX(-50%);
+  background: #e9ecef;
+}
+
+.marker {
+  position: absolute;
+  left: var(--line-x);
+  transform: translateY(-50%);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: 10px;
+  width: min(520px, calc(100% - var(--line-x) - 8px));
 }
 
-.hour-slots {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 00, 30 */
-  border-left: 1px solid #f1f3f5;
+.marker-top {
+  transform: translateY(0);
 }
 
-.slot-wrapper {
-  position: relative;
-  border-left: 1px solid #f8f9fa;
+.marker-bottom {
+  transform: translateY(-100%);
 }
 
-.slot {
-  min-height: 36px;
-  cursor: pointer;
-  padding: 4px 8px;
+/* Stadium marker (replaces circle) */
+.dot {
+  width: 20px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #4a90e2;
+  border: 3px solid white;
+  box-shadow: 0 0 0 1px #dee2e6;
+  flex: 0 0 auto;
+  margin-left: -13px;
+}
+
+.dot-system {
+  background: #868e96;
+}
+
+.bubble {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  padding: 10px 12px;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  max-width: 200px;
+}
+
+/* Duration-aware blocks */
+.block-item {
+  position: absolute;
+  left: var(--line-x);
+  transform: none;
   display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(520px, calc(100% - var(--line-x) - 8px));
+}
+
+.block-core {
+  width: 22px;
+  display: flex;
+  justify-content: center;
   align-items: stretch;
+  height: 100%;
+  flex: 0 0 auto;
+  margin-left: -11px;
 }
 
-.slot:hover .slot-empty {
+.block-pill {
+  width: 14px;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--task-color);
+  border: 3px solid white;
+  box-shadow: 0 0 0 1px #dee2e6;
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.modal {
+  width: min(520px, 100%);
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  padding: 16px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  color: #2c3e50;
+}
+
+.icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #6c757d;
+  line-height: 1;
+}
+
+.icon-btn:hover {
+  color: #2c3e50;
+}
+
+.bubble-title {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.bubble-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bubble-sub {
+  margin-top: 2px;
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.bubble-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.bubble-actions.inline {
+  margin-top: 0;
+}
+
+.mini {
+  border: 1px solid #ced4da;
+  background: white;
+  color: #495057;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mini:hover {
   background: #f1f3f5;
 }
 
-.slot-empty {
-  flex: 1;
-  border-radius: 4px;
-  transition: background 0.1s;
-}
-
-/* Block inside slot */
-.slot-block {
-  position: relative;
-  background: #e7f3ff;
-  border-radius: 6px;
-  padding: 4px 8px 4px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-}
-
-.slot-block-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1c5fb8;
-  padding-right: 16px;
-}
-
-.slot-block-time {
-  font-size: 11px;
-  color: #495057;
-}
-
-.slot-block-delete {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  background: none;
-  border: none;
+.mini.danger {
+  border-color: #f1aeb5;
   color: #c92a2a;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
 }
 
-.slot-minute-label {
-  position: absolute;
-  bottom: 2px;
-  right: 6px;
-  font-size: 10px;
-  color: #adb5bd;
+.empty-state.below {
+  padding: 14px 0 0;
 }
 
 @media (max-width: 640px) {
@@ -564,13 +1000,12 @@ onMounted(() => {
     align-items: stretch;
   }
 
-  .timeline-row {
-    grid-template-columns: 55px 1fr;
+  .marker {
+    width: calc(100% - 12px);
   }
 
-  .hour-label {
-    font-size: 11px;
-    padding: 6px 6px;
+  .block-item {
+    width: calc(100% - 12px);
   }
 }
 </style>

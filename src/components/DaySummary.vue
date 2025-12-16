@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useDaySummaryStore } from '../stores/daySummaries'
+import { Save } from 'lucide-vue-next'
 
 const store = useDaySummaryStore()
 const text = ref('')
@@ -26,7 +27,9 @@ async function save() {
       <span class="label">Summary</span>
       <textarea v-model="text" rows="3" placeholder="How did your day go?"></textarea>
     </label>
-    <button class="save" @click="save">Save</button>
+    <button class="save" @click="save" aria-label="Save" title="Save">
+      <Save :size="16" />
+    </button>
   </div>
 </template>
 
@@ -83,9 +86,11 @@ textarea {
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 6px;
   cursor: pointer;
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .meta {
   color: #374151;

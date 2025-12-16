@@ -20,12 +20,13 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
-    "pinia": "^3.0.4",
     "apexcharts": "^3.49.1",
-    "vue3-apexcharts": "^1.4.1",
+    "lucide-vue-next": "^0.561.0",
+    "pinia": "^3.0.4",
     "v-calendar": "^3.1.2",
     "vue": "^3.5.25",
-    "vue-router": "^4.6.3"
+    "vue-router": "^4.6.3",
+    "vue3-apexcharts": "^1.4.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

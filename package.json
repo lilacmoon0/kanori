@@ -53,6 +53,7 @@
     "prettier": "3.6.2",
     "typescript": "~5.9.0",
     "vite": "npm:rolldown-vite@latest",
+    "vite-plugin-pwa": "^1.0.3",
     "vite-plugin-vue-devtools": "^8.0.5",
     "vitest": "^4.0.14",
     "vue-tsc": "^3.1.5"

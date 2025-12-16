@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LMA">
+  <rect width="512" height="512" rx="112" fill="#ffffff"/>
+  <rect x="36" y="36" width="440" height="440" rx="96" fill="#111827"/>
+  <text x="256" y="310" text-anchor="middle" font-size="160" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif" font-weight="800" fill="#ffffff">LMA</text>
+</svg>

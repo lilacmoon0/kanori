@@ -1,9 +1,10 @@
 <!-- eslint-disable vue/multi-word-component-names -->
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useBlocksStore } from '../stores/blocks'
 import { useTasksStore } from '../stores/tasks'
 import { useDayBoundsStore } from '../stores/dayBounds'
+import { useFocusStore } from '../stores/focusSessions'
 import type { Block } from '../types'
 import TaskColumn from './TaskColumn.vue'
 import {
@@ -12,11 +13,15 @@ import {
   Pencil,
   Trash2,
   Clock,
+  Play,
+  Pause,
+  Check,
 } from 'lucide-vue-next'
 
 const blocksStore = useBlocksStore()
 const tasksStore = useTasksStore()
 const dayBoundsStore = useDayBoundsStore()
+const focusStore = useFocusStore()
 
 const todayTasks = tasksStore.byStatus('today')
 
@@ -694,6 +699,147 @@ const formatTimeRange = (block: Block) => {
   return `${start}–${end}`
 }
 
+// --- Focus-on-block (timer + card fill) ---
+const focusNowMs = ref(Date.now())
+let focusTicker: number | null = null
+
+function startFocusTicker() {
+  if (focusTicker != null) return
+  focusNowMs.value = Date.now()
+  focusTicker = window.setInterval(() => {
+    focusNowMs.value = Date.now()
+  }, 1000)
+}
+
+function stopFocusTicker() {
+  if (focusTicker == null) return
+  window.clearInterval(focusTicker)
+  focusTicker = null
+}
+
+function activeFocusForTask(taskId: number) {
+  return focusStore.activeByTask[taskId] || null
+}
+
+function isFocusingTask(taskId: number) {
+  return !!activeFocusForTask(taskId)
+}
+
+type PauseState = {
+  pausedAtMs: number | null
+  pausedTotalMs: number
+}
+
+const pausedByTask = ref<Record<number, PauseState>>({})
+
+function pauseStateForTask(taskId: number): PauseState {
+  const existing = pausedByTask.value[taskId]
+  if (existing) return existing
+  const next: PauseState = { pausedAtMs: null, pausedTotalMs: 0 }
+  pausedByTask.value[taskId] = next
+  return next
+}
+
+function isPausedTask(taskId: number) {
+  return pauseStateForTask(taskId).pausedAtMs != null
+}
+
+function pauseTask(taskId: number) {
+  if (!activeFocusForTask(taskId)) return
+  const state = pauseStateForTask(taskId)
+  if (state.pausedAtMs != null) return
+  state.pausedAtMs = Date.now()
+}
+
+function resumeTask(taskId: number) {
+  if (!activeFocusForTask(taskId)) return
+  const state = pauseStateForTask(taskId)
+  if (state.pausedAtMs == null) return
+  state.pausedTotalMs += Date.now() - state.pausedAtMs
+  state.pausedAtMs = null
+}
+
+function clearPause(taskId: number) {
+  if (pausedByTask.value[taskId]) delete pausedByTask.value[taskId]
+}
+
+function blockDurationMinutes(block: Block) {
+  return Math.max(10, blockEndMinutes(block) - blockStartMinutes(block))
+}
+
+function effectiveElapsedMsForTask(taskId: number) {
+  const active = activeFocusForTask(taskId)
+  if (!active) return 0
+  const startedMs = new Date(active.started_at).getTime()
+  const pauseState = pauseStateForTask(taskId)
+  const pausedWindowMs = pauseState.pausedAtMs != null ? focusNowMs.value - pauseState.pausedAtMs : 0
+  return Math.max(
+    0,
+    focusNowMs.value - startedMs - pauseState.pausedTotalMs - Math.max(0, pausedWindowMs),
+  )
+}
+
+function formatTinyTimer(taskId: number) {
+  const ms = effectiveElapsedMsForTask(taskId)
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+function focusFillPercentForBlock(block: Block) {
+  const active = activeFocusForTask(block.task)
+  if (!active) return 0
+  const elapsedMinutes = effectiveElapsedMsForTask(block.task) / 60000
+  const duration = blockDurationMinutes(block)
+  const pct = (elapsedMinutes / duration) * 100
+  return Math.max(0, Math.min(100, pct))
+}
+
+async function onBlockFocusStart(block: Block) {
+  try {
+    clearPause(block.task)
+    await focusStore.start(block.task)
+  } catch (error) {
+    console.error('Failed to start focus:', error)
+    alert('Failed to start focus')
+  }
+}
+
+async function onBlockFocusDone(block: Block) {
+  const active = activeFocusForTask(block.task)
+  if (!active) return
+  try {
+    clearPause(block.task)
+    await focusStore.stop(active.id, true)
+  } catch (error) {
+    console.error('Failed to stop focus:', error)
+    alert('Failed to stop focus')
+  }
+}
+
+watch(
+  () => Object.values(focusStore.activeByTask).map((s) => s?.id || 0).join(','),
+  (ids) => {
+    if (ids && ids !== '0') startFocusTicker()
+    else stopFocusTicker()
+
+    // Clean up pause state for tasks that are no longer active.
+    const activeTaskIds = new Set(
+      Object.entries(focusStore.activeByTask)
+        .filter(([, s]) => !!s)
+        .map(([k]) => Number(k)),
+    )
+    for (const key of Object.keys(pausedByTask.value)) {
+      const taskId = Number(key)
+      if (!activeTaskIds.has(taskId)) delete pausedByTask.value[taskId]
+    }
+  },
+  { immediate: true },
+)
+
 // --- Current time indicator (only for today) ---
 const now = ref(new Date())
 let nowTimer: number | null = null
@@ -736,10 +882,12 @@ onMounted(() => {
   }
   tasksStore.fetchAll()
   blocksStore.fetchAll()
+  focusStore.fetchAll()
 })
 
 onBeforeUnmount(() => {
   clearPendingBlockDrag()
+  stopFocusTicker()
   if (nowTimer != null) {
     window.clearInterval(nowTimer)
     nowTimer = null
@@ -952,33 +1100,90 @@ onBeforeUnmount(() => {
               <div class="block-pill" />
             </div>
             <div class="bubble bubble-block" :style="{ borderColor: 'var(--task-color)' }">
-              <div class="bubble-title-row">
-                <div class="bubble-title">{{ getTaskTitle(block.task) }}</div>
-                <div class="bubble-actions inline">
-                  <el-button
-                    text
-                    circle
-                    size="small"
-                    @click.stop="editBlock(block)"
-                    aria-label="Edit block"
-                    title="Edit"
-                  >
-                    <Pencil :size="16" />
-                  </el-button>
-                  <el-button
-                    text
-                    circle
-                    size="small"
-                    type="danger"
-                    @click.stop="deleteBlock(block.id)"
-                    aria-label="Delete block"
-                    title="Delete"
-                  >
-                    <Trash2 :size="16" />
-                  </el-button>
+              <div
+                v-if="isFocusingTask(block.task)"
+                class="focus-fill"
+                :style="{ height: focusFillPercentForBlock(block) + '%' }"
+                aria-hidden="true"
+              />
+
+              <div class="bubble-content">
+                <div class="bubble-title-row">
+                  <div class="bubble-title">{{ getTaskTitle(block.task) }}</div>
+                  <div class="bubble-actions inline">
+                    <template v-if="isFocusingTask(block.task)">
+                      <el-button
+                        text
+                        circle
+                        size="small"
+                        class="mini-icon-btn"
+                        :aria-label="isPausedTask(block.task) ? 'Resume focus timer' : 'Stop focus timer temporarily'"
+                        :title="isPausedTask(block.task) ? 'Resume' : 'Stop'"
+                        @click.stop="isPausedTask(block.task) ? resumeTask(block.task) : pauseTask(block.task)"
+                      >
+                        <Play v-if="isPausedTask(block.task)" :size="14" />
+                        <Pause v-else :size="14" />
+                      </el-button>
+
+                      <el-button
+                        text
+                        circle
+                        size="small"
+                        class="mini-icon-btn"
+                        type="success"
+                        aria-label="Done (end focus session)"
+                        title="Done"
+                        @click.stop="onBlockFocusDone(block)"
+                      >
+                        <Check :size="14" />
+                      </el-button>
+                    </template>
+                    <template v-else>
+                      <el-button
+                        text
+                        circle
+                        size="small"
+                        class="mini-icon-btn"
+                        type="primary"
+                        aria-label="Focus (start timer)"
+                        title="Focus"
+                        @click.stop="onBlockFocusStart(block)"
+                      >
+                        <Play :size="14" />
+                      </el-button>
+                    </template>
+
+                    <el-button
+                      text
+                      circle
+                      size="small"
+                      class="mini-icon-btn"
+                      @click.stop="editBlock(block)"
+                      aria-label="Edit block"
+                      title="Edit"
+                    >
+                      <Pencil :size="16" />
+                    </el-button>
+                    <el-button
+                      text
+                      circle
+                      size="small"
+                      type="danger"
+                      class="mini-icon-btn"
+                      @click.stop="deleteBlock(block.id)"
+                      aria-label="Delete block"
+                      title="Delete"
+                    >
+                      <Trash2 :size="16" />
+                    </el-button>
+                  </div>
                 </div>
+                <div class="bubble-sub">{{ formatTimeRange(block) }}</div>
               </div>
-              <div class="bubble-sub">{{ formatTimeRange(block) }}</div>
+
+              <div v-if="isFocusingTask(block.task)" class="focus-tiny-timer" aria-hidden="true">
+                {{ formatTinyTimer(block.task) }}
+              </div>
             </div>
           </div>
 
@@ -1491,6 +1696,45 @@ onBeforeUnmount(() => {
 .bubble.bubble-block {
   background: #fff;
   width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.bubble-content {
+  position: relative;
+  z-index: 1;
+}
+
+.mini-icon-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+.focus-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  background: var(--task-color);
+  opacity: 0.14;
+  transition: height 0.35s linear;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.focus-tiny-timer {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  z-index: 2;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-secondary);
+  pointer-events: none;
 }
 
 /* Duration-aware blocks */

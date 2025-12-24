@@ -91,24 +91,7 @@ watch(
   { immediate: true, deep: true },
 )
 
-const commonPalette = [
-  '#111827',
-  '#374151',
-  '#6b7280',
-  '#000000',
-  '#ffffff',
-  '#fef3c7',
-  '#fee2e2',
-  '#ecfccb',
-  '#e0f2fe',
-  '#ede9fe',
-  '#f3f4f6',
-  '#10b981',
-  '#2563eb',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-]
+const commonPalette = ['#ffffff', '#fef3c7', '#fee2e2', '#ecfccb', '#e0f2fe', '#ede9fe', '#f3f4f6']
 
 type PaletteKind = 'theme' | 'bg' | 'text'
 const openPalette = ref<PaletteKind | null>(null)
@@ -233,9 +216,19 @@ async function saveEdit() {
         <el-button text circle title="Edit" aria-label="Edit" @click="openEdit">
           <Pencil :size="16" />
         </el-button>
-        <el-button text circle title="Delete" aria-label="Delete" @click="emit('remove', task.id)">
-          <Trash2 :size="16" />
-        </el-button>
+        <el-popconfirm
+          title="Delete this task?"
+          confirm-button-text="Delete"
+          cancel-button-text="Cancel"
+          confirm-button-type="danger"
+          @confirm="emit('remove', task.id)"
+        >
+          <template #reference>
+            <el-button text circle title="Delete" aria-label="Delete">
+              <Trash2 :size="16" />
+            </el-button>
+          </template>
+        </el-popconfirm>
       </div>
     <div class="card-header">
       <h4 class="title">

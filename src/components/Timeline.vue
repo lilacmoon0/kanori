@@ -271,22 +271,20 @@ const editBlock = (block: Block) => {
 }
 
 const deleteBlock = async (id: number) => {
-  if (confirm('Are you sure you want to delete this block?')) {
-    try {
-      const block = blocksStore.items.find((b) => b.id === id)
-      if (block) {
-        const active = activeFocusForTask(block.task)
-        if (active) {
-          // If the focused task's block is deleted, end the session (treat as not successful).
-          await focusStore.stop(active.id, false)
-        }
-        focusStore.clearPause()
+  try {
+    const block = blocksStore.items.find((b) => b.id === id)
+    if (block) {
+      const active = activeFocusForTask(block.task)
+      if (active) {
+        // If the focused task's block is deleted, end the session (treat as not successful).
+        await focusStore.stop(active.id, false)
       }
-      await blocksStore.remove(id)
-    } catch (error) {
-      console.error('Failed to delete block:', error)
-      alert('Failed to delete block')
+      focusStore.clearPause()
     }
+    await blocksStore.remove(id)
+  } catch (error) {
+    console.error('Failed to delete block:', error)
+    alert('Failed to delete block')
   }
 }
 
@@ -1015,6 +1013,14 @@ const todayYmd = computed(() => {
 
 const showNowIndicator = computed(() => boundsValid.value && selectedDate.value === todayYmd.value)
 
+const axisFillHeightPx = computed(() => {
+  if (!boundsValid.value) return 0
+  // YYYY-MM-DD lexicographic compare is safe.
+  if (selectedDate.value < todayYmd.value) return timelineHeightPx.value
+  if (selectedDate.value > todayYmd.value) return 0
+  return nowTopPx.value
+})
+
 const nowMinutes = computed(() => now.value.getHours() * 60 + now.value.getMinutes())
 const nowTopPx = computed(() => (showNowIndicator.value ? markerForMinutes(nowMinutes.value) : 0))
 const nowLabel = computed(() => `${pad(now.value.getHours())}:${pad(now.value.getMinutes())}`)
@@ -1196,7 +1202,7 @@ onBeforeUnmount(() => {
               >
           <!-- time axis: single thick empty track + filled portion (today only) -->
           <div class="axis-track" aria-hidden="true">
-            <div v-if="showNowIndicator" class="axis-fill" :style="{ height: nowTopPx + 'px' }"></div>
+            <div v-if="axisFillHeightPx > 0" class="axis-fill" :style="{ height: axisFillHeightPx + 'px' }"></div>
           </div>
           <div
             v-if="showNowIndicator"
@@ -1330,18 +1336,27 @@ onBeforeUnmount(() => {
                     >
                       <Pencil :size="16" />
                     </el-button>
-                    <el-button
-                      text
-                      circle
-                      size="small"
-                      type="danger"
-                      class="mini-icon-btn"
-                      @click.stop="deleteBlock(block.id)"
-                      aria-label="Delete block"
-                      title="Delete"
+                    <el-popconfirm
+                      title="Delete this block?"
+                      confirm-button-text="Delete"
+                      cancel-button-text="Cancel"
+                      confirm-button-type="danger"
+                      @confirm="deleteBlock(block.id)"
                     >
-                      <Trash2 :size="16" />
-                    </el-button>
+                      <template #reference>
+                        <el-button
+                          text
+                          circle
+                          size="small"
+                          type="danger"
+                          class="mini-icon-btn"
+                          aria-label="Delete block"
+                          title="Delete"
+                        >
+                          <Trash2 :size="16" />
+                        </el-button>
+                      </template>
+                    </el-popconfirm>
                   </div>
                 </div>
 
@@ -1415,7 +1430,7 @@ onBeforeUnmount(() => {
 
   .timeline-layout {
     display: grid;
-    grid-template-columns: 320px minmax(0, 760px) 1fr;
+    grid-template-columns: 360px minmax(0, 760px) 1fr;
     align-items: start;
     column-gap: 16px;
   }

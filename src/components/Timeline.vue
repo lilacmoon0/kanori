@@ -10,6 +10,7 @@ import { useFocusStore } from '../stores/focusSessions'
 import { getSetting, updateSetting } from '../api/setting'
 import type { Block } from '../types'
 import TaskColumn from './TaskColumn.vue'
+import DaySummary from './DaySummary.vue'
 import {
   ChevronLeft,
   ChevronRight,
@@ -1115,6 +1116,7 @@ onBeforeUnmount(() => {
               <ChevronRight :size="18" />
             </el-button>
           </div>
+
         <el-dialog
           v-model="showModal"
           :title="editingBlockId ? 'Edit Block' : 'New Block'"
@@ -1386,11 +1388,17 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+      <div> 
+        <DaySummary :date="selectedDate" style=" " />
+      </div>
     </div>
   </div>
 </template>
 
+
+
 <style scoped>
+  
 .timeline-container {
   --timeline-accent: #f36593;
   max-width: 1100px;
@@ -1407,7 +1415,6 @@ onBeforeUnmount(() => {
 
 .today-panel {
   --column-list-max-height: min(42vh, 360px);
-  margin-top: 50px;
 }
 
 .timeline-pane {
@@ -2144,6 +2151,62 @@ onBeforeUnmount(() => {
 
   .bubble {
     max-width: none;
+  }
+}
+
+.timeline-container {
+  --timeline-accent: #f36593;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(12px, 2.5vw, 20px);
+  position: relative;
+  /* Key change: Ensure the container itself is flex-centered */
+  display: flex; 
+  justify-content: center;
+}
+
+.timeline-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  /* This prevents the whole layout from becoming too wide */
+  max-width: 1400px; 
+}
+
+.today-panel {
+  --column-list-max-height: min(42vh, 360px);
+  width: 100%;
+}
+
+.timeline-pane {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.timeline-inner {
+  width: 100%;
+  max-width: 620px; 
+  position: relative;
+}
+
+@media (min-width: 1100px) {
+  .timeline-layout {
+    display: grid;
+    grid-template-columns: 360px 620px 360px;
+    justify-content: center;
+    align-items: start;
+    column-gap: 24px;
+  }
+
+  .today-panel {
+    grid-column: 1;
+  }
+
+  .timeline-pane {
+    grid-column: 2;
   }
 }
 </style>

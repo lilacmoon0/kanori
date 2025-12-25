@@ -38,7 +38,7 @@ onMounted(() => {
 })
 
 const menuOpen = ref(false)
-const addOpen = ref(false)
+const addPopoverOpen = ref(false)
 const newTitle = ref('')
 const newDescription = ref('')
 const creating = ref(false)
@@ -90,7 +90,7 @@ function closeMenu() {
 }
 
 function toggleAdd() {
-  addOpen.value = !addOpen.value
+  addPopoverOpen.value = !addPopoverOpen.value
 }
 
 async function createTask() {
@@ -107,7 +107,7 @@ async function createTask() {
     })
     newTitle.value = ''
     newDescription.value = ''
-    addOpen.value = false
+    addPopoverOpen.value = false
   } catch (e: unknown) {
     addErr.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -190,20 +190,21 @@ async function onDragChange(evt: unknown) {
 
 <template>
   <el-card
-    class="column"
+    class="premium-column"
     shadow="never"
-    :body-style="{ padding: '12px' }"
-    :style="columnColor ? { background: columnColor } : { background: props.defaultColor }"
+    :body-style="{ padding: '12px', display: 'flex', flexDirection: 'column', flex: '1' }"
+    :style="columnColor ? { '--col-bg': columnColor } : { '--col-bg': props.defaultColor }"
   >
     <template #header>
       <div class="column-header">
         <div class="col-title">
           <span class="col-title-text">{{ title }}</span>
+          <span class="task-count-badge">{{ tasks.length }}</span>
         </div>
 
         <el-popover v-model:visible="menuOpen" placement="bottom-end" trigger="click" width="220">
           <template #reference>
-            <el-button text circle aria-label="Column menu" title="Column menu">
+            <el-button class="menu-trigger-btn" text circle aria-label="Column menu" title="Column menu">
               <MoreVertical :size="18" />
             </el-button>
           </template>
@@ -215,10 +216,7 @@ async function onDragChange(evt: unknown) {
                   class="swatch"
                   :style="{
                     background: c,
-                    border:
-                      columnColor === c
-                        ? '2px solid rgba(0,0,0,0.12)'
-                        : '1px solid rgba(0,0,0,0.06)',
+                    boxShadow: columnColor === c ? '0 0 0 2px var(--el-color-primary)' : '0 0 0 1px rgba(0,0,0,0.05)',
                   }"
                   @click="pickColor(c)"
                   :title="c"
@@ -227,16 +225,11 @@ async function onDragChange(evt: unknown) {
             </div>
 
             <div class="menu-actions">
-              <el-button
-                size="small"
-                @click="resetColor"
-                aria-label="Reset color"
-                title="Reset color"
-              >
-                <RotateCcw :size="16" />
+              <el-button size="small" @click="resetColor" link>
+                <RotateCcw :size="14" style="margin-right: 4px" /> Reset
               </el-button>
-              <el-button size="small" @click="closeMenu" aria-label="Close menu" title="Close menu">
-                <X :size="16" />
+              <el-button size="small" @click="closeMenu" link>
+                <X :size="14" />
               </el-button>
             </div>
           </div>
@@ -245,13 +238,14 @@ async function onDragChange(evt: unknown) {
     </template>
 
     <Draggable
-      class="list"
+      class="list premium-scrollbar"
       :list="localTasks"
       item-key="id"
       group="tasks"
       :sort="props.sortable"
-      :animation="150"
+      :animation="200"
       :delay="220"
+      ghost-class="drag-ghost"
       :delay-on-touch-only="true"
       :force-fallback="true"
       @start="onSortStart"
@@ -266,39 +260,199 @@ async function onDragChange(evt: unknown) {
 
       <template #footer>
         <div class="add-area">
-          <div v-if="addOpen" class="add-form">
-            <el-card shadow="never" class="add-inner">
-              <el-space direction="vertical" size="small" fill>
-                <el-input v-model="newTitle" placeholder="Task title" />
-                <el-input v-model="newDescription" placeholder="Description (optional)" />
-
+          <el-popover
+            v-model:visible="addPopoverOpen"
+            placement="bottom"
+            width="320"
+            trigger="manual"
+            :show-arrow="true"
+            @after-leave="() => { addErr = ''; newTitle = ''; newDescription = '' }"
+          >
+            <template #reference>
+              <div class="add-inner">
+                <button class="ghost-add-button" @click="toggleAdd">
+                  <Plus :size="16" />
+                  <span>Add new task</span>
+                </button>
+              </div>
+            </template>
+            <el-card shadow="never" class="add-form-card">
+              <el-space direction="vertical" size="small" fill style="width: 100%">
+                <el-input v-model="newTitle" placeholder="What needs to be done?" class="premium-input" />
+                <el-input v-model="newDescription" placeholder="Description (optional)" class="premium-input" />
                 <div class="add-actions">
-                  <el-button type="primary" :loading="creating" @click="createTask">
-                    <Plus :size="16" />
-                    <span style="margin-left: 6px">Add</span>
-                  </el-button>
-                  <el-button @click="addOpen = false">
-                    <X :size="16" />
-                    <span style="margin-left: 6px">Cancel</span>
+                  <el-button link @click="addPopoverOpen = false">Cancel</el-button>
+                  <el-button type="primary" :loading="creating" @click="createTask" round>
+                    Add Task
                   </el-button>
                 </div>
-
-                <el-alert v-if="addErr" :title="addErr" type="error" show-icon />
+                <el-alert v-if="addErr" :title="addErr" type="error" show-icon :closable="false" />
               </el-space>
             </el-card>
-          </div>
-
-          <div v-else class="add-inner">
-            <el-button text class="add-new" @click="toggleAdd">
-              <Plus :size="16" />
-              <span style="margin-left: 6px">Add new task</span>
-            </el-button>
-          </div>
+          </el-popover>
         </div>
       </template>
     </Draggable>
   </el-card>
 </template>
+
+<style scoped>
+/* 1. Main Column Aesthetic */
+.premium-column {
+  --col-bg: #f3f4f6;
+  background: var(--col-bg) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  border-radius: 12px !important;
+  transition: box-shadow 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  
+  /* Responsive Width Logic */
+  width: 100%;
+  min-width: 280px;
+  max-width: 450px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .premium-column {
+    width: 88vw;
+    min-width: 88vw;
+    scroll-snap-align: center;
+    margin-right: 12px;
+  }
+}
+
+.premium-column:hover {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* 2. Header Polish */
+.column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.col-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.col-title-text {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.task-count-badge {
+  background: rgba(0, 0, 0, 0.05);
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.menu-trigger-btn {
+  color: #94a3b8;
+}
+
+/* 3. The List & Scrollbar */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 100px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 4px; /* Space for card shadows */
+}
+
+.premium-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.premium-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+/* 4. Drag & Drop Visuals */
+.drag-ghost {
+  opacity: 0.4;
+  background: #cbd5e1 !important;
+  border-radius: 10px;
+}
+
+/* 5. Add Area Polish */
+.add-area {
+  margin-top: 12px;
+}
+
+.ghost-add-button {
+  width: 100%;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.ghost-add-button:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+.add-form-card {
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.premium-input :deep(.el-input__wrapper) {
+  box-shadow: none !important;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.add-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+/* 6. Color Palette */
+.swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s;
+}
+
+.swatch:hover {
+  transform: scale(1.1);
+}
+
+:deep(.el-card__header) {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+</style>
 
 <style scoped>
 .column {

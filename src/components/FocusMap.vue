@@ -1,10 +1,9 @@
-<!-- eslint-disable vue/multi-word-component-names -->
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue'
 import type { ApexOptions } from 'apexcharts'
 import { useFocusStore } from '../stores/focusSessions'
 import VueApexCharts from 'vue3-apexcharts'
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-vue-next'
 
 defineOptions({
   components: { apexchart: VueApexCharts },
@@ -13,24 +12,16 @@ defineOptions({
 const store = useFocusStore()
 
 onMounted(() => {
-  // Ensure we have data before rendering
   if (!store.sessions.length) {
     store.fetchAll().catch(() => {})
   }
 })
-
-// Build a multi-series heatmap: y-axis as days of week (rows), x-axis as weeks (columns).
-// Monday is the start of the week. We aggregate minutes per day-of-week for the selected month.
-// no-op: date formatting not needed in week/day layout
 
 const props = defineProps<{ month?: string; startDate?: string }>()
 const selectedMonth = ref<string | null>(
   props.month ?? (props.startDate ? String(props.startDate).slice(0, 7) : null)
 )
 
-// Parse API datetime strings safely.
-// If the backend returns a "naive" datetime string (no timezone suffix), assume it is UTC.
-// This prevents the browser from treating it as local time (which can shift by the user's UTC offset).
 function parseApiDate(value: string) {
   const v = String(value || '')
   if (!v) return new Date(NaN)
@@ -39,11 +30,9 @@ function parseApiDate(value: string) {
   return new Date(hasTz ? normalized : `${normalized}Z`)
 }
 
-// Determine start of current week (Sunday) or use provided startDate
 function startOfWeek(date: Date) {
   const d = new Date(date)
-  const jsDow = d.getDay() // 0=Sun..6=Sat
-  // Convert to Monday-based index 0=Mon..6=Sun
+  const jsDow = d.getDay() 
   const monDow = (jsDow + 6) % 7
   d.setDate(d.getDate() - monDow)
   d.setHours(0, 0, 0, 0)
@@ -66,7 +55,7 @@ const monthStart = computed(() => {
 
 const monthEnd = computed(() => {
   const d = new Date(monthStart.value)
-  d.setMonth(d.getMonth() + 1, 0) // last day of month
+  d.setMonth(d.getMonth() + 1, 0)
   d.setHours(23, 59, 59, 999)
   return d
 })
@@ -92,43 +81,24 @@ function shiftMonth(delta: number) {
   selectedMonth.value = `${y}-${m}`
 }
 
-function prevMonth() {
-  shiftMonth(-1)
-}
-
-function nextMonth() {
-  shiftMonth(1)
-}
-
 function fmtWeekRangeLabel(start: Date) {
   const end = new Date(start)
   end.setDate(start.getDate() + 6)
-  const sameMonth = start.getMonth() === end.getMonth()
-  const sameYear = start.getFullYear() === end.getFullYear()
-
   const sm = start.toLocaleString(undefined, { month: 'short' })
-  const em = end.toLocaleString(undefined, { month: 'short' })
   const sd = start.getDate()
   const ed = end.getDate()
-  const sy = start.getFullYear()
-  const ey = end.getFullYear()
-
-  if (sameMonth && sameYear) return `${sm} ${sd}–${ed}`
-  if (sameYear) return `${sm} ${sd}–${em} ${ed}`
-  return `${sm} ${sd}, ${sy}–${em} ${ed}, ${ey}`
+  return `${sm} ${sd}–${ed}`
 }
 
 const xCategories = computed(() => weekStarts.value.map((d) => fmtWeekRangeLabel(d)))
 const monthLabel = computed(() => monthStart.value.toLocaleString(undefined, { month: 'long', year: 'numeric' }))
-const yCategories = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const
+const yCategories = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 const series = computed(() => {
-  // Map: key = `${weekIndex}-${dow}` -> total minutes
   const buckets = new Map<string, number>()
   for (const s of store.sessions) {
     if (!s.started_at) continue
     const started = parseApiDate(s.started_at)
-    // find which week bucket the started date falls into
     let weekIdx = -1
     for (let i = 0; i < weekStarts.value.length; i++) {
       const start = weekStarts.value[i]!
@@ -140,108 +110,147 @@ const series = computed(() => {
       }
     }
     if (weekIdx === -1) continue
-    const dow = (started.getDay() + 6) % 7 // Monday-based 0..6
+    const dow = (started.getDay() + 6) % 7 
     const key = `${weekIdx}-${dow}`
-    const prev = buckets.get(key) || 0
-    buckets.set(key, prev + (s.duration_minutes || 0))
+    buckets.set(key, (buckets.get(key) || 0) + (s.duration_minutes || 0))
   }
 
-  // For each day-of-week, build a row with data per week
-  const rows: { name: string; data: { x: string; y: number }[] }[] = []
+  const rows = []
   for (let dow = 0; dow < 7; dow++) {
-    const row = { name: yCategories[dow] as string, data: [] as { x: string; y: number }[] }
+    const row = { name: yCategories[dow], data: [] as any }
     for (let w = 0; w < weekStarts.value.length; w++) {
       const key = `${w}-${dow}`
-      row.data.push({ x: fmtWeekRangeLabel(weekStarts.value[w]!), y: buckets.get(key) || 0 })
+      row.data.push({ x: xCategories.value[w], y: buckets.get(key) || 0 })
     }
     rows.push(row)
   }
-  return rows
+  return rows.reverse() // Reverse so Monday is at the top
 })
 
 const options = computed<ApexOptions>(() => ({
   chart: {
     type: 'heatmap',
     toolbar: { show: false },
+    fontFamily: 'inherit',
   },
   dataLabels: { enabled: false },
+  stroke: { width: 2, colors: ['#fff'] },
   plotOptions: {
     heatmap: {
-      shadeIntensity: 0.5,
+      enableShades: false,
       colorScale: {
         ranges: [
-          { from: 0, to: 0, name: 'None', color: '#f2f2f2' },
-          { from: 1, to: 10, name: 'Low', color: '#e66666' },
-          { from: 10, to: 30, name: 'Medium', color: '#A5D6A7' },
-          { from: 30, to: 180, name: 'High', color: '#66BB6A' },
-          { from: 180, to: 600, name: 'Intense', color: '#2E7D32' },
+          { from: 0, to: 0, color: '#F2F4F7' }, // Very light grey
+          { from: 1, to: 15, color: '#dcfce7' },
+          { from: 16, to: 60, color: '#86efac' },
+          { from: 61, to: 180, color: '#22c55e' },
+          { from: 181, to: 1000, color: '#15803d' },
         ],
       },
     },
   },
+  grid: { padding: { right: 20 } },
   xaxis: {
-    type: 'category',
-    labels: { show: true, rotate: 0, rotateAlways: false },
-    categories: xCategories.value,
-    tooltip: { enabled: false },
+    labels: { style: { colors: '#909399', fontSize: '12px' } },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
   },
   yaxis: {
-    labels: { show: true },
+    labels: { style: { colors: '#909399', fontSize: '12px' } },
   },
-  title: { text: `Focus Map (${monthLabel.value})`, align: 'left' },
   tooltip: {
-    y: {
-      formatter: (val: number) => `${val} min`,
-    },
+    theme: 'light',
+    y: { formatter: (val: number) => `${val} min` },
   },
 }))
-
 </script>
 
 <template>
-  <div class="focus-map">
-    <div class="focus-map-controls">
-      <div class="nav-row">
-        <el-button circle @click="prevMonth" aria-label="Previous month" title="Previous month">
-          <ChevronLeft :size="18" />
-        </el-button>
-        <el-button circle @click="nextMonth" aria-label="Next month" title="Next month">
-          <ChevronRight :size="18" />
-        </el-button>
+  <el-card class="focus-card" shadow="never">
+    <template #header>
+      <div class="header">
+        <div class="title-group">
+          <Calendar :size="18" class="icon" />
+          <span class="title">Focus Map</span>
+        </div>
+        <div class="nav-controls">
+          <span class="month-display">{{ monthLabel }}</span>
+          <el-button-group>
+            <el-button size="small" @click="shiftMonth(-1)">
+              <ChevronLeft :size="16" />
+            </el-button>
+            <el-button size="small" @click="shiftMonth(1)">
+              <ChevronRight :size="16" />
+            </el-button>
+          </el-button-group>
+        </div>
       </div>
+    </template>
 
-      <apexchart class="chart" type="heatmap" :options="options" :series="series" height="420" />
+    <div class="chart-container">
+      <apexchart 
+        type="heatmap" 
+        :options="options" 
+        :series="series" 
+        height="280" 
+      />
     </div>
-  </div>
-  
+  </el-card>
 </template>
 
 <style scoped>
-.focus-map {
+.focus-card {
+  border-radius: 12px;
+  border: 1px solid #e4e7ed;
   width: 100%;
-}
-.focus-map-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 8px;
 }
 
-.nav-row {
+.header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+}
+
+.title-group {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.focus-map-controls .chart {
-  flex: 1 1 0;
-  min-width: 0;
+.icon {
+  color: #606266;
 }
 
-@media (max-width: 768px) {
-  .focus-map-controls .chart {
-    width: 100%;
-  }
+.title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #303133;
+}
+
+.nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.month-display {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #606266;
+  min-width: 110px;
+  text-align: right;
+}
+
+.chart-container {
+  margin: -10px -10px 0 -15px; /* Pull margins to align with card edges */
+}
+
+/* Customizing the Button Group for a cleaner look */
+:deep(.el-button-group .el-button) {
+  padding: 8px;
+}
+
+:deep(.apexcharts-legend) {
+  display: none !important; /* Keep it clean, use colors only */
 }
 </style>

@@ -13,7 +13,6 @@ function indexForStatus(status: TaskStatus | string): number {
 }
 
 function normalizeColorArray(value: unknown): (string | null)[] {
-  // null means "unset" so TaskColumn can fall back to its own default-color prop.
   if (!Array.isArray(value)) return [null, null, null, null]
   const out: (string | null)[] = [null, null, null, null]
   for (let i = 0; i < out.length; i++) {
@@ -26,11 +25,8 @@ function normalizeColorArray(value: unknown): (string | null)[] {
 export const useColumnsStore = defineStore('columns', () => {
   const authStore = useAuthStore()
 
-  // null = unset (use per-component default-color)
   const colors = ref<(string | null)[]>([null, null, null, null])
 
-  // Defaults are registered by TaskColumn via its `defaultColor` prop.
-  // We don't hardcode defaults here.
   const defaults = ref<(string | null)[]>([null, null, null, null])
 
   const didHydrate = ref(false)
@@ -41,7 +37,6 @@ export const useColumnsStore = defineStore('columns', () => {
     if (!setting) return
 
     const fromApi = normalizeColorArray(setting.column_colors)
-    // If defaults are known, store only the overrides (so UI can fall back to props).
     colors.value = fromApi.map((c, i) => {
       const def = defaults.value[i]
       if (def && c && c.toLowerCase() === def.toLowerCase()) return null
@@ -73,7 +68,6 @@ export const useColumnsStore = defineStore('columns', () => {
         out[i] = def
         continue
       }
-      // Can't build a valid 4-item hex array without knowing this default.
       return null
     }
     return out
@@ -95,7 +89,6 @@ export const useColumnsStore = defineStore('columns', () => {
     if (!color) return
     defaults.value[idx] = color
 
-    // If the current override equals the default, drop it.
     const current = colors.value[idx]
     if (current && current.toLowerCase() === color.toLowerCase()) {
       colors.value[idx] = null

@@ -29,8 +29,6 @@ export async function createSetting(payload: UpdateSettingPayload) {
 }
 
 export async function updateSetting(payload: UpdateSettingPayload) {
-  // Some backends expose a singleton at /setting/ (PATCH works), others expose
-  // a collection at /setting/ and require /setting/<id>/.
   try {
     try {
       return await http.patch<Setting>(endpoints.setting, payload)
@@ -39,12 +37,10 @@ export async function updateSetting(payload: UpdateSettingPayload) {
       return await http.put<Setting>(endpoints.setting, payload)
     }
   } catch (e: unknown) {
-    // If the endpoint doesn't allow PATCH at the collection URL, fall back.
     if (!isHttpStatus(e, 404) && !isHttpStatus(e, 405)) throw e
 
     const existing = await getSetting().catch(() => null)
     if (!existing) {
-      // No setting exists yet; try creating one.
       return await createSetting(payload)
     }
 

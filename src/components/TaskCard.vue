@@ -65,7 +65,7 @@ watch(() => props.task, (t) => {
   editBackgroundColor.value = t.background_color || props.background_color
 }, { immediate: true })
 
-// --- Color Palette Logic ---
+
 const commonPalette = ['#ffffff', '#fef3c7', '#fee2e2', '#ecfccb', '#e0f2fe', '#ede9fe', '#f3f4f6']
 type PaletteKind = 'theme' | 'bg'
 const openPalette = ref<PaletteKind | null>(null)
@@ -191,7 +191,7 @@ async function saveEdit() {
 </template>
 
 <style scoped>
-/* FIX: Removed fixed height to allow card to expand when editing */
+
 .premium-card {
   background: var(--card-bg);
   color: var(--card-text);
@@ -211,7 +211,7 @@ async function saveEdit() {
   flex-direction: column;
 }
 
-/* View State */
+
 .card-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
 .title { margin: 0; font-size: 1.1rem; font-weight: 700; }
 .title a { color: inherit; text-decoration: none; }
@@ -219,13 +219,13 @@ async function saveEdit() {
 .premium-card:hover .hover-actions { opacity: 1; }
 .desc { font-size: 0.9rem; opacity: 0.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* Edit Panel - FIX: Uses Flex Grid for responsiveness */
+
 .edit-fields { display: flex; flex-direction: column; gap: 12px; }
 .title-input :deep(.el-input__inner) { font-weight: 700; border: none; background: transparent; padding: 0; font-size: 1.1rem; }
 
 .edit-grid {
   display: flex;
-  flex-wrap: wrap; /* Allows sections to wrap on small cards */
+  flex-wrap: wrap; 
   gap: 20px;
   border-top: 1px solid rgba(0,0,0,0.05);
   padding-top: 12px;
@@ -259,19 +259,19 @@ async function saveEdit() {
 .custom-input input { width: 100%; border: none; background: transparent; font-size: 12px; font-weight: 700; outline: none; text-align: center; }
 .custom-input span { font-size: 10px; opacity: 0.5; }
 
-/* Appearance Controls */
+
 .color-row { display: flex; gap: 8px; }
 .color-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .theme-btn .inner-dot { width: 4px; height: 4px; background: white; border-radius: 50%; }
 
 .edit-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
-/* Progress */
+
 .progress-bar-bg { width: 100%; height: 6px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden; margin-top: auto; }
 .progress-bar-fill { height: 100%; transition: width 0.3s ease; }
 .progress-meta { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; margin-bottom: 6px; }
 
-/* Floating Palette */
+
 .palette-popup {
   position: absolute; z-index: 9999; background: white; padding: 12px;
   border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); border: 1px solid #eee;

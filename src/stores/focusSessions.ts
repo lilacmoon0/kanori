@@ -7,15 +7,10 @@ export const useFocusStore = defineStore('focus-sessions', () => {
   const sessions = ref<FocusSession[]>([])
   const activeByTask = ref<Record<number, FocusSession | null>>({})
 
-  // Client-side: which timeline block the current focus was started from.
-  // This is UI-only and not persisted to the backend.
   const activeBlockId = ref<number | null>(null)
 
-  // Client-side: blocks that were ended via Done.
-  // Stores the session duration so UI can show a stable fill amount after stopping.
   const completedBlocks = ref<Record<number, { minutes: number }>>({})
 
-  // Client-side pause/resume state (UI-only). The backend session remains active until stop().
   const pausedTaskId = ref<number | null>(null)
   const pausedAtMs = ref<number | null>(null)
   const pausedTotalMs = ref(0)
@@ -61,9 +56,6 @@ export const useFocusStore = defineStore('focus-sessions', () => {
   async function fetchAll() {
     const res = await http.get<Paginated<FocusSession> | FocusSession[]>(endpoints.focusSessions)
     sessions.value = Array.isArray(res) ? res : (res?.results ?? [])
-
-    // Rebuild active sessions map from data (supports page reloads).
-    // Enforce: only one active focus session at a time (global).
     let newestActive: FocusSession | null = null
     for (const s of sessions.value) {
       if (s.ended_at !== null) continue
@@ -80,10 +72,7 @@ export const useFocusStore = defineStore('focus-sessions', () => {
     if (newestActive) nextActive[newestActive.task] = newestActive
     activeByTask.value = nextActive
 
-    // We can't infer a block from the API session, so drop it on refresh.
     activeBlockId.value = null
-
-    // If the active task changed (or no active), drop pause state.
     const nextActiveTaskId = newestActive ? newestActive.task : null
     if (pausedTaskId.value !== nextActiveTaskId) {
       clearPause()
@@ -91,8 +80,6 @@ export const useFocusStore = defineStore('focus-sessions', () => {
   }
 
   async function start(taskId: number, notes = '', blockId: number | null = null) {
-    // Enforce: only one active focus session at a time.
-    // Do not allow switching directly; the active session must be ended first.
     const active = Object.values(activeByTask.value).find((s) => !!s) || null
     if (active && active.task !== taskId) {
       throw new Error('Another focus session is already active')
@@ -121,7 +108,6 @@ export const useFocusStore = defineStore('focus-sessions', () => {
     })
     const idx = sessions.value.findIndex((s) => s.id === sessionId)
     if (idx >= 0) sessions.value[idx] = updated
-    // clear activeByTask if matches
     const taskId = updated.task
     if (activeByTask.value[taskId]?.id === sessionId) activeByTask.value[taskId] = null
     if (pausedTaskId.value === taskId) clearPause()

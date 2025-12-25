@@ -80,7 +80,6 @@ const activeBlock = computed(() => {
   if (taskId == null) return null
   const now = nowMs.value
 
-  // If we know exactly which block focus was started from, show that block.
   if (focusStore.activeBlockId != null) {
     const byId = blocksStore.items.find((b) => b.id === focusStore.activeBlockId)
     if (byId && byId.task === taskId) return byId
@@ -89,7 +88,6 @@ const activeBlock = computed(() => {
   const candidates = blocksStore.items.filter((b) => b.task === taskId)
   if (!candidates.length) return null
 
-  // Prefer a block that currently contains "now".
   for (const b of candidates) {
     const start = new Date(b.start_date).getTime()
     const endRaw = b.end_date ? new Date(b.end_date).getTime() : Number.NaN
@@ -97,7 +95,6 @@ const activeBlock = computed(() => {
     if (Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end) return b
   }
 
-  // Otherwise, pick the block whose start is closest in the past.
   const past = candidates
     .map((b) => ({ b, start: new Date(b.start_date).getTime() }))
     .filter((x) => Number.isFinite(x.start) && x.start <= now)
@@ -148,7 +145,6 @@ const focusFillPercent = computed(() => {
 
   if (!Number.isFinite(durationMs) || durationMs <= 0) return 0
   const pct = (elapsedMs / durationMs) * 100
-  // Never show 100% while still active; completion is represented by pressing Done.
   return Math.max(0, Math.min(99.9, pct))
 })
 

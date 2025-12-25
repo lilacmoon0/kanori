@@ -30,21 +30,17 @@ const focusStore = useFocusStore()
 
 const todayTasks = tasksStore.byStatus('today')
 
-// Modal state
 const showModal = ref(false)
 const showBoundsModal = ref(false)
 const selectedTaskId = ref<number | null>(null)
 const startDate = ref('')
 const editingBlockId = ref<number | null>(null)
 
-// Day selection (YYYY-MM-DD)
 const selectedDate = ref('')
 
-// Wake/Sleep bounds (set once)
 const wakeTime = ref('')
 const sleepTime = ref('')
 
-// Helpers
 const pad = (n: number) => n.toString().padStart(2, '0')
 
 const parseSelectedYmd = (ymd: string) => {
@@ -61,7 +57,6 @@ const parseSelectedYmd = (ymd: string) => {
   }
 }
 
-// Format Date -> datetime-local value
 const toLocalDateTimeInputValue = (date: Date) => {
   return [
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
@@ -69,8 +64,6 @@ const toLocalDateTimeInputValue = (date: Date) => {
   ].join('T')
 }
 
-// Convert local datetime-local value to UTC ISO string.
-// This prevents the backend from interpreting a naive string as UTC (which would shift on readback).
 const toUtcISOStringFromLocalInput = (value: string) => {
   if (!value) return ''
   const [datePart, timePart] = value.split('T')
@@ -129,7 +122,6 @@ function asDayBounds(value: unknown): DayBounds | null {
 }
 
 function parseDayBoundsFromSetting(dayBoundsValue: unknown): DayBounds | null {
-  // Accept either a single object or a list containing a bounds object.
   const direct = asDayBounds(dayBoundsValue)
   if (direct) return direct
 
@@ -181,11 +173,9 @@ async function hydrateDayBoundsFromApiSetting() {
       return
     }
 
-    // No bounds stored server-side yet: ask the user to set day bounds.
     showBoundsModal.value = true
   } catch (error) {
     console.error('Failed to load setting from API:', error)
-    // Keep running; the user can still set bounds via the modal.
   }
 }
 
@@ -210,14 +200,12 @@ const initializeDate = () => {
 const resetForm = () => {
   selectedTaskId.value = null
   editingBlockId.value = null
-  // Keep selected day but reset start time to now (same day if today, else leave?)
   const base = new Date()
   const { y, m, d } = parseSelectedYmd(selectedDate.value)
   base.setFullYear(y, m - 1, d)
   startDate.value = toLocalDateTimeInputValue(base)
 }
 
-// Create / update / delete
 const submitBlock = async () => {
   if (selectedTaskId.value === null) {
     alert('Please select a task')
@@ -235,11 +223,9 @@ const submitBlock = async () => {
       start_date: toUtcISOStringFromLocalInput(startDate.value),
     } as Partial<Block>
 
-    // Always submit end_date if the task has an estimate.
     if (est != null) {
       payload.end_date = addMinutesToUtcIso(payload.start_date as string, est)
     } else if (editingBlockId.value !== null) {
-      // Otherwise, preserve the existing end_date duration (if any) when changing start.
       const existing = blocksStore.items.find((b) => b.id === editingBlockId.value)
       if (existing?.end_date) {
         const startMs = new Date(existing.start_date).getTime()
@@ -277,7 +263,6 @@ const deleteBlock = async (id: number) => {
     if (block) {
       const active = activeFocusForTask(block.task)
       if (active) {
-        // If the focused task's block is deleted, end the session (treat as not successful).
         await focusStore.stop(active.id, false)
       }
       focusStore.clearPause()
@@ -299,12 +284,10 @@ const getTaskThemeColor = (taskId: number) => {
   const direct = task?.theme_color || task?.color
   if (direct) return direct
 
-  // Deterministic fallback palette (reuses colors already present in the app)
   const palette = ['#4a90e2', '#10b981', '#e66666', '#1c5fb8', '#2E7D32', '#66BB6A', '#A5D6A7']
   return palette[Math.abs(taskId) % palette.length]!
 }
 
-// Day slider controls
 const changeDay = (delta: number) => {
   const { y, m, d } = parseSelectedYmd(selectedDate.value)
   const date = new Date(y, m - 1, d)
@@ -313,7 +296,6 @@ const changeDay = (delta: number) => {
   resetForm()
 }
 
-// Blocks for selected day
 const blocksForSelectedDay = computed(() => {
   return blocksStore.items.filter((b) => {
     const d = new Date(b.start_date)
@@ -367,7 +349,6 @@ const blockEndMinutes = (block: Block) => {
   if (block.end_date) {
     const d = new Date(block.end_date)
     const mins = d.getHours() * 60 + d.getMinutes()
-    // Guard against bad data (or missing end) that would yield 0/negative durations
     if (mins > start) return mins
   }
 
@@ -404,7 +385,6 @@ const hourTicks = computed(() => {
 
 const timelineTrackRef = ref<HTMLElement | null>(null)
 
-// --- Swipe navigation (mobile) ---
 const swipeStart = ref<{ x: number; y: number; t: number } | null>(null)
 const swipeIndicator = ref<'prev' | 'next' | null>(null)
 let swipeIndicatorTimer: number | null = null
@@ -461,7 +441,6 @@ function onTouchEnd(e: TouchEvent) {
   if (absX < absY * 1.2) return
   if (Date.now() - start.t > 650) return
 
-  // Swipe left -> next day, swipe right -> previous day.
   const dir = dx < 0 ? 'next' : 'prev'
   flashSwipeIndicator(dir)
   changeDay(dir === 'next' ? 1 : -1)
@@ -492,7 +471,6 @@ const onTimelineClick = (e: MouseEvent) => {
   showModal.value = true
 }
 
-// --- Drag-to-reschedule blocks ---
 const isDraggingBlock = ref(false)
 const draggingBlockId = ref<number | null>(null)
 const draggingTopPx = ref<number | null>(null)
@@ -527,7 +505,6 @@ let pendingBlockDrag: PendingBlockDragState | null = null
 let pendingBlockDragTimer: number | null = null
 
 function preventTouchScroll(e: TouchEvent) {
-  // Only active during a drag; prevents the browser from scrolling the page.
   e.preventDefault()
 }
 
@@ -562,7 +539,6 @@ function beginBlockDrag(state: {
     try {
       state.captureEl.setPointerCapture(state.pointerId)
     } catch {
-      // Ignore if unsupported.
     }
   }
 
@@ -580,7 +556,6 @@ function beginBlockDrag(state: {
     moved: false,
   }
 
-  // While dragging on touch devices, prevent the page from scrolling.
   window.addEventListener('touchmove', preventTouchScroll, { passive: false })
 
   window.addEventListener('pointermove', onBlockPointerMove, { passive: false })
@@ -596,7 +571,6 @@ function onPendingBlockPointerMove(e: PointerEvent) {
   const dx = e.clientX - pendingBlockDrag.startClientX
   const dy = e.clientY - pendingBlockDrag.startClientY
   if (Math.hypot(dx, dy) >= BLOCK_CANCEL_MOVE_PX) {
-    // Finger moved before long-press: treat as a normal scroll gesture.
     clearPendingBlockDrag()
   }
 }
@@ -616,13 +590,8 @@ function onBlockPointerDown(block: Block, e: PointerEvent) {
   const el = timelineTrackRef.value
   if (!el) return
 
-  // Touch: require long-press before enabling drag.
   if (e.pointerType === 'touch') {
-    // Don't block scrolling here; only take over once drag activates.
-    // We rely on CSS (user-select/touch-callout) + contextmenu.prevent to avoid long-press menus.
     e.stopPropagation()
-
-    // Don't start another pending drag.
     clearPendingBlockDrag()
 
     const startMins = blockStartMinutes(block)
@@ -650,7 +619,6 @@ function onBlockPointerDown(block: Block, e: PointerEvent) {
       const s = pendingBlockDrag
       clearPendingBlockDrag()
 
-      // Start dragging from the current finger Y so the block doesn't jump.
       beginBlockDrag({
         blockId: s.blockId,
         pointerId: s.pointerId,
@@ -664,7 +632,6 @@ function onBlockPointerDown(block: Block, e: PointerEvent) {
     return
   }
 
-  // Mouse/pen: start immediately.
   e.preventDefault()
   e.stopPropagation()
 
@@ -740,9 +707,6 @@ async function onBlockPointerUp(e: PointerEvent) {
     start_date: utcIsoForSelectedDayMinutes(newStart),
   }
 
-  // Keep end_date in sync with the move.
-  // If the block already has an end_date, shift it by the same delta minutes as start_date.
-  // If it does not have an end_date yet, derive it from the task estimate (if any).
   if (block.end_date) {
     const oldStart = blockStartMinutes(block)
     const oldEnd = blockEndMinutes(block)
@@ -967,7 +931,6 @@ async function onBlockFocusStart(block: Block) {
     return
   }
   try {
-    // Ensure we have task estimates before starting focus so fill/height are correct.
     if (!tasksStore.items.length && !tasksStore.loading) {
       await tasksStore.fetchAll()
     }
@@ -999,7 +962,6 @@ watch(
   { immediate: true },
 )
 
-// --- Current time indicator (only for today) ---
 const now = ref(new Date())
 let nowTimer: number | null = null
 
@@ -1016,7 +978,6 @@ const showNowIndicator = computed(() => boundsValid.value && selectedDate.value 
 
 const axisFillHeightPx = computed(() => {
   if (!boundsValid.value) return 0
-  // YYYY-MM-DD lexicographic compare is safe.
   if (selectedDate.value < todayYmd.value) return timelineHeightPx.value
   if (selectedDate.value > todayYmd.value) return 0
   return nowTopPx.value
@@ -1039,7 +1000,6 @@ onMounted(() => {
   initializeDate()
   updateNow()
   if (nowTimer == null) {
-    // Update at a low cadence; minute precision is enough.
     nowTimer = window.setInterval(updateNow, 30_000)
   }
   const existing = dayBoundsStore.get()
@@ -1048,7 +1008,6 @@ onMounted(() => {
     sleepTime.value = existing.sleep
   }
 
-  // Fetch in parallel; blocks should render even while tasks are still loading.
   void tasksStore.fetchAll()
   void blocksStore.fetchAll()
   void focusStore.fetchAll()
@@ -1097,7 +1056,6 @@ onBeforeUnmount(() => {
             <span>{{ swipeIndicator === 'prev' ? 'Previous day' : 'Next day' }}</span>
           </div>
 
-          <!-- Day selection slider -->
           <div class="day-slider">
             <el-button circle @click="changeDay(-1)" aria-label="Previous day" title="Previous day">
               <ChevronLeft :size="18" />
@@ -1151,7 +1109,6 @@ onBeforeUnmount(() => {
           </template>
         </el-dialog>
 
-        <!-- Bounds modal (set/edit wake/sleep) -->
         <el-dialog v-model="showBoundsModal" title="Day Bounds" width="520px" @close="cancelBounds">
           <el-form label-position="top">
             <el-row :gutter="12">
@@ -1176,15 +1133,12 @@ onBeforeUnmount(() => {
           </template>
         </el-dialog>
 
-          <!-- Loading State -->
           <div v-if="blocksStore.loading" class="loading">Loading blocks...</div>
 
-          <!-- Error State -->
           <div v-else-if="blocksStore.error" class="error">
             {{ blocksStore.error }}
           </div>
 
-          <!-- Day Timeline (true scale) -->
           <div v-else class="day-timeline">
             <div v-if="!boundsValid" class="empty-state">
               <p>Set wake and sleep times to view the day timeline.</p>
@@ -1202,7 +1156,6 @@ onBeforeUnmount(() => {
                 ref="timelineTrackRef"
                 @click="onTimelineClick"
               >
-          <!-- time axis: single thick empty track + filled portion (today only) -->
           <div class="axis-track" aria-hidden="true">
             <div v-if="axisFillHeightPx > 0" class="axis-fill" :style="{ height: axisFillHeightPx + 'px' }"></div>
           </div>
@@ -1248,7 +1201,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- blocks (duration-aware) -->
           <div
             v-for="block in blocksSorted"
             :key="block.id"
@@ -1428,8 +1380,6 @@ onBeforeUnmount(() => {
 }
 
 @media (min-width: 900px) {
-  /* Full-width on desktop so the timeline can truly sit centered in the viewport,
-     while Today stays at the far left. */
   .timeline-container {
     max-width: none;
     margin: 0;
@@ -1883,7 +1833,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-/* Timeline blocks should be "empty" outlines (colored border, no fill). */
+
 .bubble.bubble-block {
   --focus-fill-pct: 0%;
   background: #fff;
@@ -2142,8 +2092,6 @@ onBeforeUnmount(() => {
     gap: 16px;
     align-items: stretch;
   }
-
-  /* Keep blocks inside the available width (account for left gutter). */
  .marker,
   .block-item {
     width: calc(100% - var(--line-x) - 8px);
@@ -2160,7 +2108,6 @@ onBeforeUnmount(() => {
   margin: 0 auto;
   padding: clamp(12px, 2.5vw, 20px);
   position: relative;
-  /* Key change: Ensure the container itself is flex-centered */
   display: flex; 
   justify-content: center;
 }
@@ -2170,7 +2117,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  /* This prevents the whole layout from becoming too wide */
   max-width: 1400px; 
 }
 

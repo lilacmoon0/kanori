@@ -175,31 +175,45 @@ onMounted(() => {
   overflow: auto;
 }
 
-
 .notes-fab {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 20;
-  width: 64px;
-  height: 64px;
+  right: 2rem; 
+  bottom: 2rem;
+  z-index: 200;
+  
+  width: 58px;
+  height: 58px;
+  border: none;
+  
+  background: linear-gradient(135deg, #f26592 0%, #8d1f5e 100%) !important;
+  color: white !important;
+  
+  box-shadow: 0 10px 20px rgba(141, 31, 94, 0.25);
+  
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
 }
 
-@media (max-width: 640px) {
-  .top-row {
-    flex-direction: column;
-  }
+.notes-fab:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 25px rgba(141, 31, 94, 0.35);
+}
 
-  .notes-container :deep(.el-card__body) {
-    padding: 10px;
-  }
+.notes-fab:active {
+  transform: translateY(-2px) scale(0.92);
+}
 
+@media (max-width: 48rem) {
   .notes-fab {
-    right: 14px;
-    bottom: 14px;
-    width: 72px;
-    height: 72px;
+    right: 1.5rem;
+    bottom: 6.5rem; 
+    width: 62px;
+    height: 62px;
   }
+}
+
+.notes-fab {
+  outline: none;
 }
 
 .loading,

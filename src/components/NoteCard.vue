@@ -80,7 +80,6 @@ function onKeydown(e: KeyboardEvent) {
   outline-offset: 2px;
 }
 
-/* Deep selector to fix Element Plus default padding */
 :deep(.el-card__body) {
   padding: 16px !important;
 }
@@ -128,7 +127,6 @@ function onKeydown(e: KeyboardEvent) {
   color: #4c4d4f;
   white-space: pre-wrap;
   word-break: break-word;
-  /* Limit height for grid consistency if needed */
   display: -webkit-box;
   -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;

@@ -124,7 +124,7 @@ const series = computed(() => {
     }
     rows.push(row)
   }
-  return rows.reverse() // Reverse so Monday is at the top
+  return rows.reverse() 
 })
 
 const options = computed<ApexOptions>(() => ({
@@ -140,7 +140,7 @@ const options = computed<ApexOptions>(() => ({
       enableShades: false,
       colorScale: {
         ranges: [
-          { from: 0, to: 0, color: '#F2F4F7' }, // Very light grey
+          { from: 0, to: 0, color: '#F2F4F7' }, 
           { from: 1, to: 15, color: '#dcfce7' },
           { from: 16, to: 60, color: '#86efac' },
           { from: 61, to: 180, color: '#22c55e' },
@@ -242,15 +242,15 @@ const options = computed<ApexOptions>(() => ({
 }
 
 .chart-container {
-  margin: -10px -10px 0 -15px; /* Pull margins to align with card edges */
+  margin: -10px -10px 0 -15px; 
 }
 
-/* Customizing the Button Group for a cleaner look */
+
 :deep(.el-button-group .el-button) {
   padding: 8px;
 }
 
 :deep(.apexcharts-legend) {
-  display: none !important; /* Keep it clean, use colors only */
+  display: none !important;
 }
 </style>

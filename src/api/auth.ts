@@ -31,7 +31,6 @@ export type AuthRegisterPayload = {
 }
 
 export async function login(payload: AuthLoginPayload) {
-  // Response shape depends on backend; cookies are handled via credentials: 'include'.
   return http.post<AuthTokenResponse>(endpoints.authLogin, payload)
 }
 

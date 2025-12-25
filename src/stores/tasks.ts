@@ -80,21 +80,15 @@ export const useTasksStore = defineStore('tasks', () => {
   async function moveOrReorder(taskId: number, status: TaskStatus, toIndex: number) {
     const task = items.value.find((t) => t.id === taskId)
     if (!task) return
-
-    // Same column: reorder locally only (no backend ordering field exists yet)
     if (task.status === status) {
       reorderLocal(taskId, status, toIndex)
       return
     }
-
-    // Cross-column: optimistic move + placement, then persist status
     reorderLocal(taskId, status, toIndex)
     try {
       const updated = await update(taskId, { status })
-      // Ensure we keep the requested lane placement after the server response.
       reorderLocal(updated.id, status, toIndex)
     } catch (e) {
-      // If persistence fails, refresh from server to avoid UI drift.
       await fetchAll()
       throw e
     }

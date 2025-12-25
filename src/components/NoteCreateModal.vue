@@ -31,7 +31,6 @@ watch(
   () => props.modelValue,
   (open) => {
     if (!open) return
-    // Reset when opening to keep the flow fast.
     title.value = ''
     content.value = ''
     backgroundColor.value = '#ffffff'

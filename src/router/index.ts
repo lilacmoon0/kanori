@@ -24,12 +24,10 @@ router.beforeEach((to) => {
   const authed = !!getAccessToken()
   const isPublic = to.meta.public === true
 
-  // Default landing page for logged-out users.
   if (!authed && !isPublic) {
     return { path: '/login' }
   }
 
-  // Logged-in users shouldn't see auth pages.
   if (authed && isPublic) {
     return { path: '/' }
   }

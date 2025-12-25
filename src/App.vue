@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Menu } from 'lucide-vue-next'
+import { LogOut, LayoutGrid, Clock, StickyNote, Target } from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
 import FocusNow from './components/FocusNow.vue'
 
@@ -32,6 +32,7 @@ async function onLogout() {
       <div class="header-inner">
         <RouterLink class="brand" :to="isAuthed ? '/' : '/login'">
           <img class="brand__logo" src="/mascot.png" />
+          <span class="brand__text">Kanori</span>
         </RouterLink>
 
         <el-menu
@@ -41,56 +42,48 @@ async function onLogout() {
           :default-active="activePath"
           router
         >
-          <el-menu-item index="/">Kanban</el-menu-item>
-          <el-menu-item index="/time">Timeline</el-menu-item>
-          <el-menu-item index="/notes">Notes</el-menu-item>
-          <el-menu-item index="/focus-log">Focus Map</el-menu-item>
+          <el-menu-item index="/">
+            <LayoutGrid :size="16" /> Kanban
+          </el-menu-item>
+          <el-menu-item index="/time">
+            <Clock :size="16" /> Timeline
+          </el-menu-item>
+          <el-menu-item index="/notes">
+            <StickyNote :size="16" /> Notes
+          </el-menu-item>
+          <el-menu-item index="/focus-log">
+            <Target :size="16" /> Focus Map
+          </el-menu-item>
         </el-menu>
 
-        <el-button v-if="isAuthed" text @click="onLogout">Logout</el-button>
-
-        <el-button
-          class="nav-toggle"
-          circle
-          text
-          aria-label="Open navigation menu"
-          @click="mobileNavOpen = true"
-        >
-          <Menu :size="20" />
-        </el-button>
+        <div class="header-right">
+          <el-button v-if="isAuthed" class="logout-link" text @click="onLogout">
+            <LogOut :size="18" /> <span class="logout-text">Logout</span>
+          </el-button>
+        </div>
       </div>
     </el-header>
 
-    <el-drawer
-      v-model="mobileNavOpen"
-      direction="ltr"
-      size="min(90vw, 17.5rem)"
-      :with-header="false"
-    >
-      <div class="drawer-inner">
-        <RouterLink
-          class="brand brand--drawer"
-          :to="isAuthed ? '/' : '/login'"
-          @click="mobileNavOpen = false"
-          ><img class="brand__logo" src="/mascot.png"
-        /></RouterLink>
-
-        <el-menu
-          v-if="isAuthed"
-          class="app-menu app-menu--mobile"
-          :default-active="activePath"
-          router
-          @select="mobileNavOpen = false"
-        >
-          <el-menu-item index="/">Kanban</el-menu-item>
-          <el-menu-item index="/time">Timeline</el-menu-item>
-          <el-menu-item index="/notes">Notes</el-menu-item>
-          <el-menu-item index="/focus-log">Focus Log</el-menu-item>
-        </el-menu>
-
-        <el-button v-if="isAuthed" text @click="onLogout">Logout</el-button>
+    <nav v-if="isAuthed" class="mobile-bottom-nav">
+      <div class="nav-pills">
+        <RouterLink to="/" class="nav-pill" :class="{ active: activePath === '/' }">
+          <LayoutGrid :size="20" />
+          <span>Kanban</span>
+        </RouterLink>
+        <RouterLink to="/time" class="nav-pill" :class="{ active: activePath === '/time' }">
+          <Clock :size="20" />
+          <span>Time</span>
+        </RouterLink>
+        <RouterLink to="/notes" class="nav-pill" :class="{ active: activePath === '/notes' }">
+          <StickyNote :size="20" />
+          <span>Notes</span>
+        </RouterLink>
+        <RouterLink to="/focus-log" class="nav-pill" :class="{ active: activePath === '/focus-log' }">
+          <Target :size="20" />
+          <span>Map</span>
+        </RouterLink>
       </div>
-    </el-drawer>
+    </nav>
 
     <el-main class="app-main">
       <Suspense>
@@ -108,12 +101,20 @@ async function onLogout() {
 </template>
 
 <style scoped>
+/* Kanori Brand Colors */
+:deep(:root) {
+  --kanori-blue: #689ebb;
+  --kanori-pink: #f26592;
+  --kanori-plum: #8d1f5e;
+}
+
 .app-header {
   position: sticky;
   top: 0;
-  z-index: 10;
-  background: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(104, 158, 187, 0.15);
 }
 
 .header-inner {
@@ -131,86 +132,131 @@ async function onLogout() {
   height: 100%;
   display: inline-flex;
   align-items: center;
+  gap: 10px;
+  text-decoration: none;
 }
 
 .brand__logo {
-  height: 100%;
+  height: 1.8rem;
   width: auto;
-  max-height: 100%;
   object-fit: contain;
-  flex: 0 0 auto;
 }
 
-.app-menu {
-  flex: 1;
-  min-width: 0;
-  border-bottom: none;
+.brand__text {
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #f26592, #8d1f5e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .app-menu--desktop {
+  flex: 1;
+  background: transparent;
+  border: none;
   height: 100%;
   display: flex;
   align-items: center;
+  margin-left: 1.5rem;
 }
 
-/* Make the horizontal menu feel more modern (pill hover/active). */
 .app-menu--desktop:deep(.el-menu-item) {
   border-bottom: none !important;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 0.625rem;
-  margin: 0 0.125rem;
-  height: 2.25rem;
-  line-height: 2.25rem;
-}
-
-.app-menu--desktop:deep(.el-menu-item:hover) {
-  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  margin: 0 4px;
+  height: 2.2rem;
+  line-height: 2.2rem;
+  font-weight: 600;
+  color: #64748b;
+  gap: 6px;
 }
 
 .app-menu--desktop:deep(.el-menu-item.is-active) {
-  background: var(--el-color-primary-light-9);
-  color: var(--el-color-primary);
+  background: rgba(104, 158, 187, 0.1) !important;
+  color: #689ebb !important;
 }
 
-.nav-toggle {
+.app-menu--desktop:deep(.el-menu-item:hover) {
+  color: #f26592;
+  background: rgba(242, 101, 146, 0.05);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logout-link {
+  font-weight: 600;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.logout-link:hover { color: #8d1f5e; }
+
+/* Mobile Bottom Nav Styling */
+.mobile-bottom-nav {
   display: none;
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: calc(100% - 2rem);
+  max-width: 400px;
 }
 
-.drawer-inner {
+.nav-pills {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(104, 158, 187, 0.2);
+  padding: 6px;
+  border-radius: 20px;
+  display: flex;
+  justify-content: space-around;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.nav-pill {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  align-items: center;
+  text-decoration: none;
+  color: #94a3b8;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
 }
 
-.brand--drawer {
-  display: inline-flex;
-  align-items: center;
-  height: 2.5rem;
-  background: transparent;
-  border: none;
-  padding: 0;
-  border-radius: 0;
-}
+.nav-pill span { font-size: 10px; font-weight: 700; }
+.nav-pill.active { color: #689ebb; background: rgba(104, 158, 187, 0.08); }
+.nav-pill.active :deep(svg) { color: #f26592; }
 
 .app-main {
   padding: 0;
   overflow-x: hidden;
-  padding-bottom: env(safe-area-inset-bottom, 0rem);
 }
 
 @media (max-width: 48rem) {
-  .app-menu--desktop {
+  .app-menu--desktop, .logout-text {
     display: none;
   }
-
-  .nav-toggle {
-    display: inline-flex;
+  .mobile-bottom-nav {
+    display: block;
+  }
+  .header-right {
     margin-left: auto;
   }
-
-  .header-inner {
-    gap: 0.5rem;
+  .app-main {
+    padding-bottom: 80px;
   }
+}
+/* Disable the mobile tap highlight box */
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 </style>

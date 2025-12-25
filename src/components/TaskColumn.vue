@@ -434,7 +434,6 @@ async function onDragChange(evt: unknown) {
   margin-top: 4px;
 }
 
-/* 6. Color Palette */
 .swatch {
   width: 26px;
   height: 26px;

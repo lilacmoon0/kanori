@@ -11,6 +11,3 @@ import FocusLogList from '@/components/FocusLogList.vue'
     <FocusLogList />
   </div>
 </template>
-
-<style scoped>
-</style>

@@ -52,7 +52,6 @@ onMounted(() => {
   padding: 8px;
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-lighter);
-  /* Make column lists feel like Trello (taller scroll areas) */
   --column-list-max-height: calc(100dvh - 200px);
 }
 

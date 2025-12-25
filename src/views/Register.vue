@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import type { FormInstance, FormRules } from 'element-plus'
+import { UserPlus } from 'lucide-vue-next'
 
 defineOptions({ name: 'AuthRegister' })
 
@@ -57,15 +58,14 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="page-container">
+  <div class="auth-page">
     <div class="auth-shell">
-      <el-card>
-        <template #header>
-          <div class="auth-header">
-            <div class="auth-title">Register</div>
-          </div>
-        </template>
+      <div class="auth-branding">
+        <h1 class="auth-brand-name">Kanori</h1>
+        <p class="auth-subtitle">Will help you manage your life.</p>
+      </div>
 
+      <el-card class="premium-card">
         <el-alert
           v-if="auth.error"
           type="error"
@@ -75,26 +75,57 @@ async function onSubmit() {
           class="auth-alert"
         />
 
-        <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+        <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @keyup.enter="onSubmit">
           <el-form-item label="Username" prop="username">
-            <el-input v-model="form.username" autocomplete="username" />
+            <el-input 
+              v-model="form.username" 
+              placeholder="Pick a unique name"
+              class="premium-input"
+            />
           </el-form-item>
 
-          <el-form-item label="Email" prop="email">
-            <el-input v-model="form.email" autocomplete="email" />
+          <el-form-item label="Email Address" prop="email">
+            <el-input 
+              v-model="form.email" 
+              type="email" 
+              placeholder="you@example.com"
+              class="premium-input"
+            />
           </el-form-item>
 
           <el-form-item label="Password" prop="password">
-            <el-input v-model="form.password" type="password" autocomplete="new-password" show-password />
+            <el-input 
+              v-model="form.password" 
+              type="password" 
+              show-password 
+              placeholder="Strong password"
+              class="premium-input"
+            />
           </el-form-item>
 
           <el-form-item label="Confirm Password" prop="confirmPassword">
-            <el-input v-model="form.confirmPassword" type="password" autocomplete="new-password" show-password />
+            <el-input 
+              v-model="form.confirmPassword" 
+              type="password" 
+              show-password 
+              placeholder="Repeat password"
+              class="premium-input"
+            />
           </el-form-item>
 
           <div class="auth-actions">
-            <el-button type="primary" :loading="submitting" @click="onSubmit">Create account</el-button>
-            <RouterLink class="auth-link" to="/login">Back to login</RouterLink>
+            <el-button 
+              class="submit-btn" 
+              :loading="submitting" 
+              @click="onSubmit"
+            >
+              <UserPlus v-if="!submitting" :size="18" style="margin-right: 8px" />
+              Create account
+            </el-button>
+            <div class="footer-links">
+              <span>Already have an account?</span>
+              <RouterLink class="auth-link" to="/login">Sign in instead</RouterLink>
+            </div>
           </div>
         </el-form>
       </el-card>
@@ -103,44 +134,102 @@ async function onSubmit() {
 </template>
 
 <style scoped>
-.auth-shell {
-  max-width: 460px;
-  margin: 0 auto;
-  padding-top: 24px;
-}
-
-.auth-title {
-  font-weight: 700;
-}
-
-.auth-actions {
+/* 1. The main container is now a fixed 'Stage' that never moves */
+.auth-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100dvh;
+  
+  /* This ensures the background is pinned to the glass of the phone screen */
+  background-color: #ffffff;
+  background-image: 
+    radial-gradient(circle at top right, rgba(104, 158, 187, 0.18) 0%, transparent 60%),
+    radial-gradient(circle at bottom left, rgba(242, 101, 146, 0.18) 0%, transparent 60%),
+    radial-gradient(circle at center, rgba(104, 158, 187, 0.04) 0%, transparent 70%);
+  
+  /* This allows the CONTENT to scroll inside the fixed stage */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Smooth physics for iOS */
+  
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  padding: 20px;
 }
 
-@media (max-width: 420px) {
-  .auth-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
+/* 2. The Shell handles the actual scrolling/centering */
+.auth-shell {
+  width: 100%;
+  max-width: 400px;
+  /* margin: auto ensures it centers when small, but allows top-align when tall */
+  margin: auto 0; 
+  padding: 40px 0; /* Extra space so you don't scroll 'out' of the branding */
+  z-index: 2;
+  animation: fadeIn 0.8s ease-out;
+}
 
-  .auth-actions :deep(.el-button) {
-    width: 100%;
-  }
+.auth-branding {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
 
-  .auth-link {
-    text-align: center;
-  }
+.auth-brand-name {
+  font-size: 2.2rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #8d1f5e, #f26592);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.premium-card {
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(30px) saturate(160%);
+  border-radius: 28px;
+  box-shadow: 0 25px 50px -12px rgba(104, 158, 187, 0.15);
+}
+
+.premium-card :deep(.el-card__body) {
+  padding: 24px;
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 14px;
+}
+
+.premium-input :deep(.el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #8d1f5e, #f26592) !important;
+  color: white !important;
+  font-weight: 700;
+  border: none;
+}
+
+.footer-links {
+  text-align: center;
+  margin-top: 1rem;
 }
 
 .auth-link {
+  color: #689ebb;
+  font-weight: 800;
   text-decoration: none;
-  font-size: 14px;
 }
 
-.auth-alert {
-  margin-bottom: 12px;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-page::-webkit-scrollbar {
+  display: none;
 }
 </style>

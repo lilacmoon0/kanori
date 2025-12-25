@@ -1,6 +1,7 @@
 const BASE_URL = (import.meta as ImportMeta).env?.VITE_API_BASE || '/api'
 
 import { getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from './tokens'
+import { useAuthStore } from '../stores/auth'
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -81,6 +82,14 @@ async function request<T>(path: string, options: RequestInit = {}, hasRetried = 
         credentials: 'include',
         ...options,
       })
+    } else {
+      // If refresh fails, force logout
+      try {
+        const auth = useAuthStore()
+        auth.logout()
+      } catch (e) {
+        // ignore if store not available
+      }
     }
   }
 

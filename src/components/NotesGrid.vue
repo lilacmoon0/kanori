@@ -73,11 +73,6 @@ function onDragEnd() {
   overflow-x: hidden;
 }
 
-/* Masonry-style grid for notes */
-/* Masonry layout using CSS columns */
-
-/* Mobile: flexbox 2 columns */
-/* Masonry layout using CSS columns for all screens */
 .notes-list {
   column-count: 2;
   column-gap: 12px;
@@ -126,7 +121,6 @@ function onDragEnd() {
   }
 }
 
-/* Tablet and up: increase columns */
 @media (min-width: 900px) {
   .notes-list {
     column-count: 4;
@@ -139,7 +133,6 @@ function onDragEnd() {
   }
 }
 
-/* ...moved above for context-sensitive styling... */
 
 .note {
   display: block;
@@ -151,7 +144,7 @@ function onDragEnd() {
   opacity: 0.5;
 }
 
-/* Ensure direct children of the column container behave as column items */
+
 
 .drag-chosen {
   opacity: 0.9;

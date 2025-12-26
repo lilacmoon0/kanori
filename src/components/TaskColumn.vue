@@ -297,7 +297,6 @@ async function onDragChange(evt: unknown) {
 </template>
 
 <style scoped>
-/* 1. Main Column Aesthetic */
 .premium-column {
   --col-bg: #f3f4f6;
   background: var(--col-bg) !important;
@@ -308,7 +307,6 @@ async function onDragChange(evt: unknown) {
   display: flex;
   flex-direction: column;
   
-  /* Responsive Width Logic */
   width: 100%;
   min-width: 280px;
   max-width: 450px;
@@ -328,7 +326,6 @@ async function onDragChange(evt: unknown) {
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* 2. Header Polish */
 .column-header {
   display: flex;
   justify-content: space-between;
@@ -361,7 +358,6 @@ async function onDragChange(evt: unknown) {
   color: #94a3b8;
 }
 
-/* 3. The List & Scrollbar */
 .list {
   display: flex;
   flex-direction: column;
@@ -370,7 +366,7 @@ async function onDragChange(evt: unknown) {
   min-height: 100px;
   max-height: 70vh;
   overflow-y: auto;
-  padding: 4px; /* Space for card shadows */
+  padding: 4px; 
 }
 
 .premium-scrollbar::-webkit-scrollbar {
@@ -381,14 +377,12 @@ async function onDragChange(evt: unknown) {
   border-radius: 10px;
 }
 
-/* 4. Drag & Drop Visuals */
 .drag-ghost {
   opacity: 0.4;
   background: #cbd5e1 !important;
   border-radius: 10px;
 }
 
-/* 5. Add Area Polish */
 .add-area {
   margin-top: 12px;
 }

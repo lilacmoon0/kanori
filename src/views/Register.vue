@@ -124,7 +124,7 @@ async function onSubmit() {
             </el-button>
             <div class="footer-links">
               <span>Already have an account?</span>
-              <RouterLink class="auth-link" to="/login">Sign in instead</RouterLink>
+              <RouterLink class="auth-link" to="/login"> Sign in</RouterLink>
             </div>
           </div>
         </el-form>

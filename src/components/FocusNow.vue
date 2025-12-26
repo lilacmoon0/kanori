@@ -260,6 +260,12 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+@media (max-width: 48rem) {
+  .focus-overlay {
+    bottom: 90px;
+  }
+}
+
 .focus-overlay-card {
   pointer-events: auto;
   position: relative;

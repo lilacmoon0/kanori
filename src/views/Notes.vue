@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/multi-word-component-names -->
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Note } from '@/types'
 import { fetchNotes } from '@/api/notes'
@@ -18,6 +18,34 @@ const error = ref<string | null>(null)
 const showCreate = ref(false)
 const showEdit = ref(false)
 const editingNote = ref<Note | null>(null)
+const overlayOrFocusNow = ref(false)
+let overlayObserver = null
+
+function isVisible(el) {
+  if (!el) return false
+  const style = window.getComputedStyle(el)
+  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+}
+
+function checkOverlays() {
+  if (typeof document === 'undefined') return
+  // Check for visible Element Plus overlays/dialogs
+  const modalSelectors = ['.el-overlay', '.el-dialog__wrapper', '.v-modal', '[role="dialog"]']
+  let found = false
+  for (const sel of modalSelectors) {
+    const el = document.querySelector(sel)
+    if (el && isVisible(el)) {
+      found = true
+      break
+    }
+  }
+  // Check for visible FocusNow overlay
+  if (!found) {
+    const focusNow = document.querySelector('.focus-overlay')
+    if (focusNow && isVisible(focusNow)) found = true
+  }
+  overlayOrFocusNow.value = found
+}
 
 async function loadNotes() {
   if (!authStore.isAuthenticated) return
@@ -70,12 +98,19 @@ watch(
 
 onMounted(() => {
   void loadNotes()
+  checkOverlays()
+  overlayObserver = new MutationObserver(() => checkOverlays())
+  overlayObserver.observe(document.body, { childList: true, subtree: true })
+})
+
+onBeforeUnmount(() => {
+  if (overlayObserver) overlayObserver.disconnect()
 })
 </script>
 
 <template>
   <div class="page-container page-container--full notes-page-container">
-    <div class="notes-page">
+    <div class="notes-page" :class="{ 'has-modal': showCreate || showEdit || overlayOrFocusNow }">
       <el-alert
         v-if="!authStore.isAuthenticated"
         type="info"
@@ -177,19 +212,19 @@ onMounted(() => {
 
 .notes-fab {
   position: fixed;
-  right: 2rem; 
+  right: 2rem;
   bottom: 2rem;
   z-index: 200;
-  
+
   width: 58px;
   height: 58px;
   border: none;
-  
+
   background: linear-gradient(135deg, #f26592 0%, #8d1f5e 100%) !important;
   color: white !important;
-  
+
   box-shadow: 0 10px 20px rgba(141, 31, 94, 0.25);
-  
+
   transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
   cursor: pointer;
 }
@@ -204,9 +239,9 @@ onMounted(() => {
 }
 
 @media (max-width: 48rem) {
-  .notes-fab {
+  body .notes-fab {
     right: 1.5rem;
-    bottom: 6.5rem; 
+    bottom: 12.5rem !important;
     width: 62px;
     height: 62px;
   }
@@ -214,6 +249,16 @@ onMounted(() => {
 
 .notes-fab {
   outline: none;
+}
+
+/* Move FAB up when modal or FocusNow overlay is open */
+.notes-page.has-modal .notes-fab {
+  bottom: 8rem;
+}
+
+/* Move FAB up when modal is open */
+.notes-page.has-modal .notes-fab {
+  bottom: 8rem;
 }
 
 .loading,

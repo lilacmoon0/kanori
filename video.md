@@ -1,9 +1,11 @@
-# Project’s title;
+# Kanori
 
-Name;
+Name: Merin Akyüz
 
-GitHub and edX usernames;
+GitHub: lilacmoon0
 
-City and country;
+Edx: lilacmoony 
 
-Date:
+City and country: Ankara/Turkey
+
+Date: 26.12.2025

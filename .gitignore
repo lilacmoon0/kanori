@@ -28,6 +28,17 @@ coverage
 
 .eslintcache
 
+# Build outputs
+node_modules/
+dist/
+dist-ssr/
+dev-dist/      <-- Add this
+*.local
+
+# Environment variables
+.env
+.env.local
+
 # Cypress
 /cypress/videos/
 /cypress/screenshots/

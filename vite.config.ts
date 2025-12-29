@@ -56,6 +56,7 @@ export default defineConfig({
       '/api': {
         target: 'https://kanori-service.onrender.com',
         changeOrigin: true,
+        secure: true,
       },
     },
   },

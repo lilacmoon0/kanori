@@ -19,9 +19,9 @@ const showCreate = ref(false)
 const showEdit = ref(false)
 const editingNote = ref<Note | null>(null)
 const overlayOrFocusNow = ref(false)
-let overlayObserver = null
+let overlayObserver: MutationObserver | null = null
 
-function isVisible(el) {
+function isVisible(el: Element | null): boolean {
   if (!el) return false
   const style = window.getComputedStyle(el)
   return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'

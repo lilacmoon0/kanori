@@ -54,7 +54,7 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'https://kanori-service.onrender.com/api',
+        target: 'https://kanori-service.onrender.com',
         changeOrigin: true,
         secure: true,
       },

@@ -6,6 +6,10 @@ Kanori is a productivity web application designed to help users bring order to t
 
 [https://www.youtube.com/watch?v=lY0hmQH6Bxs](https://www.youtube.com/watch?v=lY0hmQH6Bxs)
 
+## Live 
+
+https://kanori.vercel.app
+
 ## Project Overview
 
 Kanori is structured around pages, each dedicated to a core productivity function. The main pages are:
